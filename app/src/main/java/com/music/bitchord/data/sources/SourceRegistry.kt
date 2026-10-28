@@ -248,6 +248,18 @@ object SourceRegistry {
 
     fun instance(configId: String): MusicSource? = instances[configId]
 
+    /**
+     * The browsable library behind [configId], or null when there is none or
+     * the source is switched off.
+     *
+     * [instance] answers for disabled sources too (the sources screen probes
+     * them), so anything that would *contact* the server on the user's behalf
+     * — browsing, cover art — asks here instead. A disabled server is not to
+     * be contacted.
+     */
+    fun browsable(configId: String): BrowsableMusicLibrary? =
+        if (config(configId)?.enabled == true) instance(configId) as? BrowsableMusicLibrary else null
+
     fun config(configId: String): SourceConfig? = configs.value.firstOrNull { it.id == configId }
 
     /**

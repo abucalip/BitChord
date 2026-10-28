@@ -1357,4 +1357,8 @@
     <string name="navidrome_invalid_url">Itu bukan alamat http atau https yang valid</string>
     <string name="navidrome_password_required">Masukkan kata sandi akun</string>
     <string name="navidrome_secure_storage_unavailable">Penyimpanan aman tidak tersedia di perangkat ini, sehingga kata sandi tidak disimpan</string>
+    <string name="navidrome_libraries">Pustaka server</string>
+    <string name="navidrome_browse">Jelajahi artis dan album</string>
+    <string name="navidrome_empty">Belum ada apa pun di sini</string>
+    <string name="navidrome_unavailable">Server ini tidak tersedia. Periksa di Sumber.</string>
 </resources>

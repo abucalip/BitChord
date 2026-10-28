@@ -1380,4 +1380,8 @@
     <string name="navidrome_invalid_url">यह मान्य http या https पता नहीं है</string>
     <string name="navidrome_password_required">खाते का पासवर्ड दर्ज करें</string>
     <string name="navidrome_secure_storage_unavailable">इस डिवाइस पर सुरक्षित स्टोरेज उपलब्ध नहीं है, इसलिए पासवर्ड सहेजा नहीं गया</string>
+    <string name="navidrome_libraries">सर्वर लाइब्रेरी</string>
+    <string name="navidrome_browse">कलाकार और एल्बम ब्राउज़ करें</string>
+    <string name="navidrome_empty">यहाँ अभी कुछ नहीं है</string>
+    <string name="navidrome_unavailable">यह सर्वर उपलब्ध नहीं है। स्रोत में इसे जाँचें।</string>
 </resources>

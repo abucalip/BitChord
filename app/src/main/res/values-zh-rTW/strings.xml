@@ -1357,4 +1357,8 @@
     <string name="navidrome_invalid_url">這不是有效的 http 或 https 位址</string>
     <string name="navidrome_password_required">請輸入帳戶密碼</string>
     <string name="navidrome_secure_storage_unavailable">此裝置不支援安全儲存，因此未儲存密碼</string>
+    <string name="navidrome_libraries">伺服器音樂庫</string>
+    <string name="navidrome_browse">瀏覽藝人與專輯</string>
+    <string name="navidrome_empty">這裡還沒有內容</string>
+    <string name="navidrome_unavailable">此伺服器無法使用。請在「來源」中檢查。</string>
 </resources>

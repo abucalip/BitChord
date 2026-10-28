@@ -1358,4 +1358,8 @@
     <string name="navidrome_invalid_url">有効な http または https のアドレスではありません</string>
     <string name="navidrome_password_required">アカウントのパスワードを入力してください</string>
     <string name="navidrome_secure_storage_unavailable">この端末では安全なストレージを利用できないため、パスワードは保存されませんでした</string>
+    <string name="navidrome_libraries">サーバーのライブラリ</string>
+    <string name="navidrome_browse">アーティストとアルバムを見る</string>
+    <string name="navidrome_empty">まだ何もありません</string>
+    <string name="navidrome_unavailable">このサーバーは利用できません。ソースで確認してください。</string>
 </resources>

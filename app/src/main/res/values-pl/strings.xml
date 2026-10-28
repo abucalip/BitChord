@@ -1420,4 +1420,8 @@
     <string name="navidrome_invalid_url">To nie jest prawidłowy adres http ani https</string>
     <string name="navidrome_password_required">Wpisz hasło do konta</string>
     <string name="navidrome_secure_storage_unavailable">Bezpieczny magazyn jest niedostępny na tym urządzeniu, więc hasło nie zostało zapisane</string>
+    <string name="navidrome_libraries">Biblioteki serwerów</string>
+    <string name="navidrome_browse">Przeglądaj wykonawców i albumy</string>
+    <string name="navidrome_empty">Nic tu jeszcze nie ma</string>
+    <string name="navidrome_unavailable">Ten serwer jest niedostępny. Sprawdź go w Źródłach.</string>
 </resources>

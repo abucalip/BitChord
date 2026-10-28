@@ -1412,4 +1412,8 @@
     <string name="navidrome_invalid_url">Это недопустимый адрес http или https</string>
     <string name="navidrome_password_required">Введите пароль учётной записи</string>
     <string name="navidrome_secure_storage_unavailable">Безопасное хранилище недоступно на этом устройстве, поэтому пароль не был сохранён</string>
+    <string name="navidrome_libraries">Библиотеки серверов</string>
+    <string name="navidrome_browse">Просмотр исполнителей и альбомов</string>
+    <string name="navidrome_empty">Здесь пока ничего нет</string>
+    <string name="navidrome_unavailable">Этот сервер недоступен. Проверьте его в разделе «Источники».</string>
 </resources>

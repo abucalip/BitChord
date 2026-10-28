@@ -21,6 +21,8 @@ import com.music.bitchord.ui.player.AndroidPlayerHost
 import com.music.bitchord.ui.player.PlayerPlatform
 import com.music.bitchord.data.canvas.CanvasCache
 import com.music.bitchord.data.smb.SmbCoverFetcher
+import com.music.bitchord.data.sources.navidrome.NavidromeArtFetcher
+import com.music.bitchord.data.sources.navidrome.NavidromeArtKeyer
 import com.music.bitchord.data.webdav.WebDavCoilAuth
 import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.data.spotify.SpotifyLibrary
@@ -215,6 +217,10 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
                 // Covers filed on the SMB share; anything else falls
                 // through to Coil's own fetchers. See SmbCoverFetcher.
                 add(SmbCoverFetcher.Factory())
+                // Navidrome covers are fetched with the login added per
+                // request and cached by server and reference, never by URL.
+                add(NavidromeArtKeyer())
+                add(NavidromeArtFetcher.Factory())
                 // Artist signatures are usually SVG, which Coil can't
                 // decode without this. See ArtistSignatureRepository.
                 add(SvgDecoder.Factory())

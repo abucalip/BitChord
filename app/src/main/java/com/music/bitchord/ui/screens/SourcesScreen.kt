@@ -120,6 +120,8 @@ fun SourcesScreen(
     onEditSmb: () -> Unit,
     /** Opens the full-window warning before JioSaavn is opted into. */
     onConfirmJioSaavn: () -> Unit,
+    /** Opens a Navidrome server's artists and albums. */
+    onBrowseNavidrome: (SourceConfig) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -299,6 +301,24 @@ fun SourcesScreen(
                 title = stringResource(R.string.add_navidrome),
                 detail = stringResource(R.string.add_navidrome_detail),
             )
+        }
+
+        // Servers that can be browsed, one row each. Only enabled, filled-in
+        // ones: a disabled server is not to be contacted, and browsing it
+        // would do exactly that.
+        val browsable = configs.filter { it.kind == SourceKind.NAVIDROME && it.enabled && it.isComplete }
+        if (browsable.isNotEmpty()) {
+            SettingsGroup(header = stringResource(R.string.navidrome_libraries)) {
+                browsable.forEachIndexed { index, config ->
+                    if (index > 0) RowDivider()
+                    SettingsRow(
+                        icon = Icons.Rounded.Dns,
+                        title = config.displayName,
+                        subtitle = stringResource(R.string.navidrome_browse),
+                        onClick = { onBrowseNavidrome(config) },
+                    )
+                }
+            }
         }
 
         // A personal library rather than a catalogue in the order above: it

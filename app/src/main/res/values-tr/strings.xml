@@ -1337,4 +1337,8 @@
     <string name="navidrome_invalid_url">Bu geçerli bir http veya https adresi değil</string>
     <string name="navidrome_password_required">Hesap parolasını girin</string>
     <string name="navidrome_secure_storage_unavailable">Bu cihazda güvenli depolama kullanılamıyor, bu nedenle parola kaydedilmedi</string>
+    <string name="navidrome_libraries">Sunucu kitaplıkları</string>
+    <string name="navidrome_browse">Sanatçılara ve albümlere göz atın</string>
+    <string name="navidrome_empty">Burada henüz bir şey yok</string>
+    <string name="navidrome_unavailable">Bu sunucu kullanılamıyor. Kaynaklar bölümünden kontrol edin.</string>
 </resources>

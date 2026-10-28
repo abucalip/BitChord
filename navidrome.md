@@ -224,6 +224,13 @@ Delivered as planned, with these specifics and deviations:
 7. Add artist → album → track navigation, reusing existing UI components where practical.
 8. Include loading, empty, disconnected, error, and retry states.
 
+**Status:** Implemented in PRs #3 (browsing interface and API) and #4 (UI and artwork), pending review and device testing.
+
+- Entry point: a "Server libraries" group on the Sources screen lists each enabled Navidrome server. Navigation is three routes on the app's single back stack: library (Artists / Albums), artist, album.
+- Artwork: `NavidromeArt(configId, ref, size)` is the image model, not a URL. A Coil fetcher builds the authenticated URL at fetch time and the cache key is `navidrome:<configId>:<ref>:<size>`. Known limitation: covers are cached in memory only, not on disk, so they are re-downloaded after a process restart.
+- Search rows still have no artwork.
+- Not verified on a device or emulator: scrolling and prefetch behaviour, layouts and the artwork fetcher have only compiled and been unit-tested at the paging and cache-key level.
+
 **Acceptance criteria:** Users can browse artists and albums, open an album, and play its tracks. Large libraries are not loaded all at once. Artwork comes from the correct server. Sources without browsing support behave unchanged.
 
 ### Phase 3 — Lifecycle and UX hardening

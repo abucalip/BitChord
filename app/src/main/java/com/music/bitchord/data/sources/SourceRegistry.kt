@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import java.util.UUID
@@ -108,6 +110,13 @@ object SourceRegistry {
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
+    /**
+     * Navidrome config ids that were removed or re-pointed, each with the id
+     * that replaced it ("" when removed outright). Oldest first.
+     */
+    private var retiredNavidrome: Map<String, String> = emptyMap()
+    private val retiredSerializer = MapSerializer(String.serializer(), String.serializer())
+
     /** Every configured source, enabled or not. */
     val configs = MutableStateFlow<List<SourceConfig>>(emptyList())
 
@@ -124,6 +133,9 @@ object SourceRegistry {
         // Same repair and degradation as AuthStore; see EncryptedPrefs.
         prefs = EncryptedPrefs.open(context, "bitchord_sources", "bitchord_sources_plain")
         NavidromeCredentials.init(context)
+        retiredNavidrome = prefs.getString(KEY_RETIRED_NAVIDROME, null)
+            ?.let { runCatching { json.decodeFromString(retiredSerializer, it) }.getOrNull() }
+            .orEmpty()
 
         val stored = prefs.getString(KEY_SOURCES, null)?.let(::decodeStored) ?: emptyList()
         val jioOptInMigrationDone = prefs.getBoolean(KEY_JIOSAAVN_OPT_IN_V1, false)
@@ -325,7 +337,10 @@ object SourceRegistry {
         val target = config(configId) ?: return
         if (target.kind in BUILT_IN_KINDS) return
         // The login goes with the source: a deleted server must not leave a password behind.
-        if (target.kind == SourceKind.NAVIDROME) NavidromeCredentials.delete(configId)
+        if (target.kind == SourceKind.NAVIDROME) {
+            NavidromeCredentials.delete(configId)
+            retireNavidrome(configId, successor = null)
+        }
         publish(configs.value.filterNot { it.id == configId })
     }
 
@@ -344,7 +359,43 @@ object SourceRegistry {
         val old = config(oldId) ?: return
         if (old.kind in BUILT_IN_KINDS || replacement.id == oldId) return
         publish(configs.value.map { if (it.id == oldId) replacement.copy(enabled = old.enabled).tidied() else it })
-        if (old.kind == SourceKind.NAVIDROME) NavidromeCredentials.delete(oldId)
+        if (old.kind == SourceKind.NAVIDROME) {
+            NavidromeCredentials.delete(oldId)
+            retireNavidrome(oldId, successor = replacement.id)
+        }
+    }
+
+    /**
+     * Whether [configId] was a Navidrome server that has since been removed or
+     * re-pointed at another address. Queued tracks still name it, and must not
+     * be answered by any other source: see [SourceResolver.resolve].
+     */
+    fun isRetiredNavidrome(configId: String): Boolean = configId in retiredNavidrome
+
+    /**
+     * The config a re-pointed Navidrome id became, or null when it was removed
+     * or never retired. Only that config may answer a retired id's track.
+     */
+    fun navidromeSuccessor(configId: String): String? = retiredNavidrome[configId]?.takeIf { it.isNotEmpty() }
+
+    /** Tests reuse ids that production never does (UUIDs); forget retirements between them. */
+    internal fun clearRetiredNavidromeForTest() {
+        retiredNavidrome = emptyMap()
+    }
+
+    /**
+     * Remembers a removed or re-pointed Navidrome id, so queued tracks from it
+     * stay unanswered across restarts. Capped: the oldest retirements fall away,
+     * which only matters for tracks queued long before a server was removed.
+     */
+    private fun retireNavidrome(configId: String, successor: String?) {
+        retiredNavidrome = (retiredNavidrome - configId + (configId to successor.orEmpty()))
+            .entries.toList().takeLast(RETIRED_NAVIDROME_LIMIT).associate { it.key to it.value }
+        if (::prefs.isInitialized) {
+            prefs.edit()
+                .putString(KEY_RETIRED_NAVIDROME, json.encodeToString(retiredSerializer, retiredNavidrome))
+                .apply()
+        }
     }
 
     /**
@@ -560,6 +611,8 @@ object SourceRegistry {
     private val BUILT_IN_KINDS = listOf(SourceKind.JIOSAAVN, SourceKind.YOUTUBE)
 
     private const val KEY_SOURCES = "sources"
+    private const val KEY_RETIRED_NAVIDROME = "retired_navidrome_ids"
+    private const val RETIRED_NAVIDROME_LIMIT = 100
     /** One-shot migration: existing users must explicitly opt in again. */
     private const val KEY_JIOSAAVN_OPT_IN_V1 = "jiosaavn_opt_in_v1"
     private const val PREFIX = "src:"

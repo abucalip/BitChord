@@ -40,6 +40,7 @@ class NavidromeLifecycleTest {
         a = MockWebServer().also { it.start() }
         b = MockWebServer().also { it.start() }
         NavidromeCredentials.installForTest(MemoryPrefs())
+        SourceRegistry.clearRetiredNavidromeForTest()
     }
 
     @After
@@ -72,6 +73,44 @@ class NavidromeLifecycleTest {
         """{"subsonic-response":{"status":"ok","version":"1.16.1","searchResult3":{"song":[
           {"id":"$id","title":"Song","artist":"Artist","duration":125,"suffix":"flac"}]}}}""",
     )
+
+    // ── Retired ids ───────────────────────────────────────────────────────
+
+    /**
+     * A removed server's queued tracks must not be re-matched by title and
+     * artist across other sources (YouTube included). The id is retired, so the
+     * track is simply not answered, and that holds across an app restart too.
+     */
+    @Test
+    fun `a removed Navidrome server's queued track is never answered by another source`() = runBlocking {
+        add(a, "srv-gone")
+        SourceRegistry.remove("srv-gone")
+        ids -= "srv-gone"
+        assertTrue(SourceRegistry.isRetiredNavidrome("srv-gone"))
+        assertNull(SourceRegistry.navidromeSuccessor("srv-gone"))
+        // Another live Navidrome server must not stand in for a removed one.
+        add(b, "srv-other")
+        b.enqueue(search("77"))
+        assertNull(SourceResolver.resolve("srv-gone", "42", target))
+        assertEquals("the other server must not be searched", 0, b.requestCount)
+    }
+
+    @Test
+    fun `a re-pointed Navidrome server keeps its old id retired`() = runBlocking {
+        val old = add(a, "srv-old")
+        SourceRegistry.rekey("srv-old", old.copy(id = "srv-new", baseUrl = b.url("").toString().trimEnd('/')))
+        ids -= "srv-old"
+        ids += "srv-new"
+        assertTrue(SourceRegistry.isRetiredNavidrome("srv-old"))
+        assertFalse(SourceRegistry.isRetiredNavidrome("srv-new"))
+        assertEquals("srv-new", SourceRegistry.navidromeSuccessor("srv-old"))
+        assertNull(SourceRegistry.navidromeSuccessor("srv-gone-entirely"))
+    }
+
+    @Test
+    fun `an id that was never Navidrome is not retired`() {
+        assertFalse(SourceRegistry.isRetiredNavidrome("some-other-id"))
+    }
 
     // ── Streaming quality ─────────────────────────────────────────────────
 

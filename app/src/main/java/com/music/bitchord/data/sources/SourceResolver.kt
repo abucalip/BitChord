@@ -181,11 +181,22 @@ object SourceResolver {
         // including a lossless upgrade from a different server — would be a
         // silent substitution of something the listener chose from their own
         // collection, the same reasoning as a row picked from an addon (see
-        // [MIX_PARAM]). Only a source still configured as Navidrome is
-        // covered; one that has been deleted or re-pointed is re-matched by
-        // title and artist like any other removed source, never by id.
-        if (SourceRegistry.config(configId)?.kind == SourceKind.NAVIDROME) {
+        // [MIX_PARAM]). That covers a server that has since been deleted or
+        // re-pointed too: its id is retired (see [SourceRegistry.isRetiredNavidrome]),
+        // so such a track is never re-matched by title and artist.
+        val navidromeOwned = SourceRegistry.config(configId)?.kind == SourceKind.NAVIDROME ||
+            SourceRegistry.isRetiredNavidrome(configId)
+        if (navidromeOwned) {
             val stream = pinned?.let { attempt(it) { it.stream(trackId, request) } }
+                // A retired id has no live source of its own. If it was re-pointed,
+                // only the config that replaced it may answer, matched by title and
+                // artist; a removed server answers with nothing, and no other source
+                // (YouTube included) ever stands in for it.
+                ?: SourceRegistry.navidromeSuccessor(configId)
+                    ?.takeIf { pinned == null }
+                    ?.let { successor -> active.firstOrNull { it.configId == successor } }
+                    ?.takeIf { it.kind == SourceKind.NAVIDROME }
+                    ?.let { matchAndStream(it, target, request) }
             if (stream == null) {
                 TrackLog.d(TAG, "'${target.title}' belongs to a Navidrome server that could not serve it; not substituting")
             }

@@ -221,6 +221,7 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
                 // request and cached by server and reference, never by URL.
                 add(NavidromeArtKeyer())
                 add(NavidromeArtFetcher.Factory())
+                add(NavidromeArtFetcher.ReferenceFactory())
                 // Artist signatures are usually SVG, which Coil can't
                 // decode without this. See ArtistSignatureRepository.
                 add(SvgDecoder.Factory())

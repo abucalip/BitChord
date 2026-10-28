@@ -13,6 +13,8 @@ import com.music.bitchord.data.sources.SourceRegistry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
+import java.net.URLDecoder
+import java.net.URLEncoder
 
 /**
  * A cover on a Navidrome server, as an image model.
@@ -24,6 +26,31 @@ import okhttp3.Request
  * the authenticated URL at the moment it fetches.
  */
 data class NavidromeArt(val configId: String, val ref: String, val sizePx: Int = 300)
+
+/** Prefix of a cover reference stored in a song's thumbnail. */
+const val NAVIDROME_ART_SCHEME = "navidrome-art:"
+
+/**
+ * This cover as a reference a [Song][com.music.bitchord.data.model.Song] can
+ * persist: `navidrome-art:<configId>/<ref>/<size>`. It names the server
+ * (by its config id) and the server-side cover, and nothing that logs in, so it
+ * is safe in queues and history. [NavidromeArtFetcher] turns it back into the
+ * image when it is shown.
+ */
+fun NavidromeArt.toReference(): String =
+    "$NAVIDROME_ART_SCHEME$configId/${URLEncoder.encode(ref, "UTF-8")}/$sizePx"
+
+/** The cover a reference from [toReference] names, or null for anything else. */
+fun parseNavidromeArtReference(text: String): NavidromeArt? {
+    if (!text.startsWith(NAVIDROME_ART_SCHEME)) return null
+    val parts = text.removePrefix(NAVIDROME_ART_SCHEME).split('/')
+    if (parts.size != 3) return null
+    val configId = parts[0]
+    val ref = URLDecoder.decode(parts[1], "UTF-8")
+    val size = parts[2].toIntOrNull() ?: return null
+    if (configId.isBlank() || ref.isBlank() || size <= 0) return null
+    return NavidromeArt(configId, ref, size)
+}
 
 /**
  * Keys cached images on the server and reference, never on a URL: two servers
@@ -59,5 +86,11 @@ class NavidromeArtFetcher private constructor(private val art: NavidromeArt) : F
     class Factory : Fetcher.Factory<NavidromeArt> {
         override fun create(data: NavidromeArt, options: Options, imageLoader: ImageLoader): Fetcher =
             NavidromeArtFetcher(data)
+    }
+
+    /** Serves the string references that [toReference] makes; anything else falls through to Coil's own fetchers. */
+    class ReferenceFactory : Fetcher.Factory<String> {
+        override fun create(data: String, options: Options, imageLoader: ImageLoader): Fetcher? =
+            parseNavidromeArtReference(data)?.let { NavidromeArtFetcher(it) }
     }
 }

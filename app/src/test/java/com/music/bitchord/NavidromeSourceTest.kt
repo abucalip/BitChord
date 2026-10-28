@@ -139,6 +139,16 @@ class NavidromeSourceTest {
     }
 
     @Test
+    fun `a search row with cover art carries a reference to it, never its url`() = runTest {
+        serverA.enqueue(ok("\"searchResult3\":{\"song\":[{\"id\":\"42\",\"title\":\"Song\",\"coverArt\":\"al-7\"}]}"))
+        val result = source(config(serverA, "srv-a")).search("song").single()
+        val thumb = result.thumbnailUrl!!
+        assertEquals("navidrome-art:srv-a/al-7/150", thumb)
+        assertFalse(thumb.contains("hunter2"))
+        assertFalse(thumb.contains("u=alice"))
+    }
+
+    @Test
     fun `missing optional metadata does not crash mapping`() = runTest {
         serverA.enqueue(ok("\"searchResult3\":{\"song\":[{\"id\":\"1\"}]}"))
         val result = source(config(serverA, "a")).search("x").single()

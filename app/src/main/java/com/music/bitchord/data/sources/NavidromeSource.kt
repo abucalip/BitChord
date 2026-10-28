@@ -2,6 +2,7 @@ package com.music.bitchord.data.sources
 
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.sources.navidrome.NavidromeAlbum
 import com.music.bitchord.data.sources.navidrome.NavidromeClient
 import com.music.bitchord.data.sources.navidrome.NavidromeCredentials
 import com.music.bitchord.data.sources.navidrome.NavidromeException
@@ -27,7 +28,7 @@ class NavidromeSource(
     private val logins: (String) -> NavidromeLogin? = NavidromeCredentials::get,
     private val clients: (String, NavidromeLogin) -> NavidromeClient =
         { url, login -> NavidromeClient(url, login.username, login.password) },
-) : MusicSource, SourceRegistry.ConfigBacked {
+) : MusicSource, BrowsableMusicLibrary, SourceRegistry.ConfigBacked {
 
     override val configId: String get() = config.id
     override val kind: SourceKind get() = SourceKind.NAVIDROME
@@ -117,6 +118,56 @@ class NavidromeSource(
         trackNumber = song.track,
         sourceQuality = ModuleSource.qualityTier("${song.suffix.orEmpty()} ${song.contentType.orEmpty()}"),
         sourceHiRes = (song.bitDepth ?: 0) > 16 || (song.samplingRate ?: 0) > 48_000,
+    )
+
+    // ── Browsing ──────────────────────────────────────────────────────────
+
+    private suspend fun <T> browse(what: String, block: suspend (NavidromeClient) -> Result<T>): Result<T> {
+        val client = client() ?: return Result.failure(NavidromeException.Auth("Sign in to this server"))
+        return block(client).onFailure { failure ->
+            if (failure is CancellationException) throw failure
+            TrackLog.w(TAG, "${config.displayName}: $what failed — ${failure.message}")
+        }
+    }
+
+    override suspend fun artists(): Result<List<LibraryArtist>> = browse("artist list") { client ->
+        client.listArtists().map { list ->
+            list.map { LibraryArtist(it.id, it.name.ifBlank { it.id }, it.albumCount, it.coverArt) }
+        }
+    }
+
+    override suspend fun albums(offset: Int, limit: Int): Result<LibraryPage<LibraryAlbum>> =
+        browse("album list") { client ->
+            client.listAlbums(offset, limit).map { list ->
+                // A full page means there may be more; a short one is the end.
+                LibraryPage(list.map(::toAlbum), (offset + list.size).takeIf { list.size >= limit })
+            }
+        }
+
+    override suspend fun artistAlbums(artistId: String): Result<List<LibraryAlbum>> =
+        browse("artist albums") { client -> client.artistAlbums(artistId).map { it.map(::toAlbum) } }
+
+    override suspend fun albumTracks(albumId: String): Result<List<Song>> =
+        browse("album tracks") { client ->
+            client.albumSongs(albumId).map { songs ->
+                songs.map { song ->
+                    synchronized(rows) { rows[song.id] = song }
+                    toSong(song)
+                }
+            }
+        }
+
+    override fun artworkUrl(artworkRef: String, sizePx: Int): String? =
+        client()?.coverArtUrl(artworkRef, sizePx)?.getOrNull()
+
+    private fun toAlbum(album: NavidromeAlbum) = LibraryAlbum(
+        id = album.id,
+        title = album.name.ifBlank { album.id },
+        artist = album.artist,
+        artistId = album.artistId,
+        year = album.year,
+        trackCount = album.songCount,
+        artworkRef = album.coverArt,
     )
 
     // ── Stream ────────────────────────────────────────────────────────────

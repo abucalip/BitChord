@@ -24,6 +24,10 @@ internal data class SubsonicResponse(
     val openSubsonic: Boolean = false,
     val error: SubsonicError? = null,
     val searchResult3: SearchResult3? = null,
+    val artists: ArtistsIndex? = null,
+    val albumList2: AlbumList2? = null,
+    val artist: ArtistWithAlbums? = null,
+    val album: AlbumWithSongs? = null,
 )
 
 @Serializable
@@ -58,6 +62,45 @@ data class NavidromeSong(
     val bitRate: Int? = null,
     val samplingRate: Int? = null,
     val bitDepth: Int? = null,
+    val discNumber: Int? = null,
+)
+
+@Serializable
+internal data class ArtistsIndex(val index: List<ArtistIndexEntry> = emptyList())
+
+@Serializable
+internal data class ArtistIndexEntry(val artist: List<NavidromeArtist> = emptyList())
+
+@Serializable
+internal data class AlbumList2(val album: List<NavidromeAlbum> = emptyList())
+
+@Serializable
+internal data class ArtistWithAlbums(val album: List<NavidromeAlbum> = emptyList())
+
+@Serializable
+internal data class AlbumWithSongs(val song: List<NavidromeSong> = emptyList())
+
+/** An artist as listed by `getArtists`. [id] is opaque. */
+@Serializable
+data class NavidromeArtist(
+    val id: String = "",
+    val name: String = "",
+    val albumCount: Int? = null,
+    val coverArt: String? = null,
+)
+
+/** An album as listed by `getAlbumList2` / `getArtist`. [id] is opaque. */
+@Serializable
+data class NavidromeAlbum(
+    val id: String = "",
+    val name: String = "",
+    val artist: String = "",
+    val artistId: String? = null,
+    val songCount: Int? = null,
+    /** Seconds. */
+    val duration: Int? = null,
+    val year: Int? = null,
+    val coverArt: String? = null,
 )
 
 /** What a successful ping tells us about the server. */

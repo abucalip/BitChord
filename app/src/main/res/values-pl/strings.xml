@@ -1418,6 +1418,7 @@
     <string name="navidrome_password_unchanged">Hasło (zostaw puste, aby zachować)</string>
     <string name="navidrome_name_optional">Nazwa (opcjonalnie)</string>
     <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
+    <string name="navidrome_remove_confirmation">Remove this server? Its saved password is deleted too.</string>
     <string name="navidrome_invalid_url">To nie jest prawidłowy adres http ani https</string>
     <string name="navidrome_password_required">Wpisz hasło do konta</string>
     <string name="navidrome_secure_storage_unavailable">Bezpieczny magazyn jest niedostępny na tym urządzeniu, więc hasło nie zostało zapisane</string>

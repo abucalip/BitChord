@@ -16,6 +16,7 @@ import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.navidrome.NavidromeClient
 import com.music.bitchord.data.sources.navidrome.NavidromeCredentials
 import com.music.bitchord.data.sources.navidrome.NavidromeLogin
+import com.music.bitchord.ui.components.ConfirmationAlert
 import com.music.bitchord.ui.components.EditorField
 import com.music.bitchord.ui.components.ServerEditorAlert
 import dev.chrisbanes.haze.HazeState
@@ -70,6 +71,7 @@ internal fun NavidromeEditorAlert(
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
     var statusIsGood by remember { mutableStateOf(false) }
+    var confirmRemove by remember { mutableStateOf(false) }
 
     val connected = stringResource(R.string.connected)
     val invalidUrl = stringResource(R.string.navidrome_invalid_url)
@@ -188,7 +190,22 @@ internal fun NavidromeEditorAlert(
         onTest = { run(thenSave = false) },
         onSave = { run(thenSave = true) },
         removeLabel = stringResource(R.string.remove_source),
-        onRemove = if (isNew) null else onDelete,
+        onRemove = if (isNew) null else ({ confirmRemove = true }),
         onDismiss = onDismiss,
     )
+
+    // Removing also deletes the stored login, so it is not one stray tap away.
+    if (confirmRemove) {
+        ConfirmationAlert(
+            hazeState = hazeState,
+            title = stringResource(R.string.remove_source),
+            description = stringResource(R.string.navidrome_remove_confirmation),
+            confirmLabel = stringResource(R.string.remove),
+            onConfirm = {
+                confirmRemove = false
+                onDelete()
+            },
+            onDismiss = { confirmRemove = false },
+        )
+    }
 }

@@ -1355,6 +1355,7 @@
     <string name="navidrome_password_unchanged">密碼（留空則保持不變）</string>
     <string name="navidrome_name_optional">名稱（選填）</string>
     <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
+    <string name="navidrome_remove_confirmation">Remove this server? Its saved password is deleted too.</string>
     <string name="navidrome_invalid_url">這不是有效的 http 或 https 位址</string>
     <string name="navidrome_password_required">請輸入帳戶密碼</string>
     <string name="navidrome_secure_storage_unavailable">此裝置不支援安全儲存，因此未儲存密碼</string>

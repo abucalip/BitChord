@@ -1295,6 +1295,7 @@
     <string name="navidrome_password_unchanged">Mật khẩu (để trống để giữ nguyên)</string>
     <string name="navidrome_name_optional">Tên (tùy chọn)</string>
     <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
+    <string name="navidrome_remove_confirmation">Remove this server? Its saved password is deleted too.</string>
     <string name="navidrome_invalid_url">Đây không phải là địa chỉ http hoặc https hợp lệ</string>
     <string name="navidrome_password_required">Nhập mật khẩu của tài khoản</string>
     <string name="navidrome_secure_storage_unavailable">Bộ nhớ an toàn không khả dụng trên thiết bị này nên mật khẩu chưa được lưu</string>

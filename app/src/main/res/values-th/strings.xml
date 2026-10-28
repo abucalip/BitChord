@@ -1361,6 +1361,7 @@
     <string name="navidrome_password_unchanged">รหัสผ่าน (เว้นว่างไว้เพื่อใช้ค่าเดิม)</string>
     <string name="navidrome_name_optional">ชื่อ (ไม่บังคับ)</string>
     <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
+    <string name="navidrome_remove_confirmation">Remove this server? Its saved password is deleted too.</string>
     <string name="navidrome_invalid_url">ที่อยู่ http หรือ https นี้ไม่ถูกต้อง</string>
     <string name="navidrome_password_required">ป้อนรหัสผ่านของบัญชี</string>
     <string name="navidrome_secure_storage_unavailable">อุปกรณ์นี้ไม่มีที่เก็บข้อมูลที่ปลอดภัย จึงไม่ได้บันทึกรหัสผ่าน</string>

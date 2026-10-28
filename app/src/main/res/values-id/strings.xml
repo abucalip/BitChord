@@ -1355,6 +1355,7 @@
     <string name="navidrome_password_unchanged">Kata sandi (kosongkan untuk tetap menggunakan yang lama)</string>
     <string name="navidrome_name_optional">Nama (opsional)</string>
     <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
+    <string name="navidrome_remove_confirmation">Remove this server? Its saved password is deleted too.</string>
     <string name="navidrome_invalid_url">Itu bukan alamat http atau https yang valid</string>
     <string name="navidrome_password_required">Masukkan kata sandi akun</string>
     <string name="navidrome_secure_storage_unavailable">Penyimpanan aman tidak tersedia di perangkat ini, sehingga kata sandi tidak disimpan</string>

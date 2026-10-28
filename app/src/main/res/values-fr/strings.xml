@@ -1379,6 +1379,7 @@
     <string name="navidrome_password_unchanged">Mot de passe (laisser vide pour le conserver)</string>
     <string name="navidrome_name_optional">Nom (facultatif)</string>
     <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
+    <string name="navidrome_remove_confirmation">Remove this server? Its saved password is deleted too.</string>
     <string name="navidrome_invalid_url">Ce n’est pas une adresse http ou https valide</string>
     <string name="navidrome_password_required">Saisissez le mot de passe du compte</string>
     <string name="navidrome_secure_storage_unavailable">Le stockage sécurisé n’est pas disponible sur cet appareil, le mot de passe n’a donc pas été enregistré</string>

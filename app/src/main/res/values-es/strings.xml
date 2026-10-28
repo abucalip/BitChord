@@ -1350,6 +1350,7 @@
     <string name="navidrome_password_unchanged">Contraseña (déjala en blanco para conservarla)</string>
     <string name="navidrome_name_optional">Nombre (opcional)</string>
     <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
+    <string name="navidrome_remove_confirmation">Remove this server? Its saved password is deleted too.</string>
     <string name="navidrome_invalid_url">No es una dirección http o https válida</string>
     <string name="navidrome_password_required">Introduce la contraseña de la cuenta</string>
     <string name="navidrome_secure_storage_unavailable">El almacenamiento seguro no está disponible en este dispositivo, así que no se guardó la contraseña</string>

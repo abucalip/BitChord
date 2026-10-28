@@ -11,6 +11,7 @@ import com.music.bitchord.data.sources.SourceHealth
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.StreamRequest
+import com.music.bitchord.data.sources.navidrome.NavidromeException
 import com.music.bitchord.data.sources.navidrome.NavidromeLogin
 import kotlinx.coroutines.test.runTest
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -468,5 +469,53 @@ class NavidromeSourceTest {
 
         serverA.enqueue(MockResponse().setResponseCode(503))
         assertTrue(source(config(serverA, "a")).playlists().isFailure)
+    }
+
+    // ── Favorites ────────────────────────────────────────────────────────
+
+    @Test
+    fun `favorites map to songs in this server's identity`() = runTest {
+        serverA.enqueue(ok("\"starred2\":{\"song\":[{\"id\":\"42\",\"title\":\"Fave\"}]}"))
+        val songs = source(config(serverA, "id-a")).favorites().getOrThrow()
+        assertEquals(listOf("Fave"), songs.map { it.title })
+        assertEquals("id-a" to "42", SourceRegistry.parseTrackKey(songs.single().videoId))
+    }
+
+    @Test
+    fun `starring sends the server's own id to that server only`() = runTest {
+        serverA.enqueue(ok("\"x\":1"))
+        val result = source(config(serverA, "id-a")).setFavorite("42", favorite = true)
+        assertTrue(result.isSuccess)
+
+        val request = serverA.takeRequest().requestUrl!!
+        assertEquals("/rest/star", request.encodedPath)
+        assertEquals("42", request.queryParameter("id"))
+        assertEquals(0, serverB.requestCount)
+    }
+
+    @Test
+    fun `unstarring uses unstar`() = runTest {
+        serverA.enqueue(ok("\"x\":1"))
+        source(config(serverA, "id-a")).setFavorite("42", favorite = false)
+        assertEquals("/rest/unstar", serverA.takeRequest().requestUrl!!.encodedPath)
+    }
+
+    @Test
+    fun `a refused favorite is a failure result the screen can explain`() = runTest {
+        serverA.enqueue(MockResponse().setBody(
+            """{"subsonic-response":{"status":"failed","version":"1.16.1","error":{"code":50,"message":"no"}}}""",
+        ))
+        val failure = source(config(serverA, "id-a")).setFavorite("42", favorite = true).exceptionOrNull()
+        assertTrue(failure is NavidromeException.NotAllowed)
+    }
+
+    @Test
+    fun `the same track starred on two servers stays two tracks`() = runTest {
+        val body = "\"starred2\":{\"song\":[{\"id\":\"42\",\"title\":\"x\"}]}"
+        serverA.enqueue(ok(body))
+        serverB.enqueue(ok(body))
+        val a = source(config(serverA, "id-a")).favorites().getOrThrow().single()
+        val b = source(config(serverB, "id-b")).favorites().getOrThrow().single()
+        assertNotEquals(a.videoId, b.videoId)
     }
 }

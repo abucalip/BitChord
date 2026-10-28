@@ -31,6 +31,7 @@ internal data class SubsonicResponse(
     val song: NavidromeSong? = null,
     val playlists: PlaylistsIndex? = null,
     val playlist: PlaylistWithEntries? = null,
+    val starred2: StarredSongs? = null,
 )
 
 @Serializable
@@ -85,6 +86,10 @@ internal data class AlbumWithSongs(val song: List<NavidromeSong> = emptyList())
 
 @Serializable
 internal data class PlaylistsIndex(val playlist: List<NavidromePlaylist> = emptyList())
+
+/** The tracks this login has starred, as `getStarred2` returns them. Only songs are read. */
+@Serializable
+internal data class StarredSongs(val song: List<NavidromeSong> = emptyList())
 
 /** A playlist with its tracks, as `getPlaylist` returns it. The tracks are in the server's order. */
 @Serializable

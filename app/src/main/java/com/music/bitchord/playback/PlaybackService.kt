@@ -1874,7 +1874,8 @@ class PlaybackService : MediaLibraryService() {
      * against, and a local file or a download has no YouTube identity to rate.
      */
     private fun canLike(item: MediaItem?): Boolean =
-        item != null && SignedIn.state(this).value && item.toSong().localUri == null
+        item != null && SignedIn.state(this).value && item.toSong().localUri == null &&
+            !SourceRegistry.isNavidromeTrack(item.mediaId)
 
     /** Favorite and Shuffle: the only actions shown on the phone notification. */
     private fun notificationButtons(): List<CommandButton> {
@@ -3155,6 +3156,8 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun toggleFavoriteFromNotification(videoId: String) {
+        // A Navidrome track's favorite is the server's; this path is YouTube's.
+        if (SourceRegistry.isNavidromeTrack(videoId)) return
         favoriteActionJob?.cancel()
         val previous = LikeState.overrides.value[videoId] ?: LikeStatus.INDIFFERENT
         val target = if (previous == LikeStatus.LIKE) {

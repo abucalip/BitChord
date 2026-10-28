@@ -598,6 +598,15 @@ object SourceRegistry {
     /** The `(configId, trackId)` inside a [trackKey], or null if this is an ordinary YouTube id. */
     fun parseTrackKey(key: String): Pair<String, String>? = SourceTrackKeys.parse(key)
 
+    /**
+     * Whether [videoId] names a track on a Navidrome server. Such a track's
+     * favorite is the server's own, never YouTube's, so the like paths branch on this.
+     */
+    fun isNavidromeTrack(videoId: String): Boolean {
+        val (configId, _) = parseTrackKey(videoId) ?: return false
+        return config(configId)?.kind == SourceKind.NAVIDROME
+    }
+
     /** The playback URI for a source-backed track; [PlaybackService] resolves it at open time. */
     fun trackUri(configId: String, trackId: String): String =
         Uri.Builder()

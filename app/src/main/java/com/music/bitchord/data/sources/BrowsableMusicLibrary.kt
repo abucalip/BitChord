@@ -38,6 +38,19 @@ interface BrowsableMusicLibrary {
     suspend fun playlistTracks(playlistId: String): Result<List<Song>>
 
     /**
+     * The tracks this login has starred on the server, as [Song]s that play back
+     * through this source. The server's order is kept. Empty is a real answer.
+     */
+    suspend fun favorites(): Result<List<Song>>
+
+    /**
+     * Stars ([favorite] = true) or unstars one track on the server. [trackId] is
+     * this source's own id for the track, not the app's track key. A failure is
+     * a result the caller can show; nothing is changed locally on its behalf.
+     */
+    suspend fun setFavorite(trackId: String, favorite: Boolean): Result<Unit>
+
+    /**
      * An authenticated URL for [LibraryArtist.artworkRef] or [LibraryAlbum.artworkRef],
      * or null if the source can't build one.
      *

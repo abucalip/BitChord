@@ -422,6 +422,11 @@
     <string name="navidrome_err_rate_limited">The server is limiting requests. Try again in a little while.</string>
     <string name="navidrome_err_server">The server had a problem (HTTP %1$d). Try again later.</string>
     <string name="navidrome_err_not_found">The server does not have that track.</string>
+    <string name="navidrome_favorites">Favorites</string>
+    <string name="navidrome_favorite">Add to favorites</string>
+    <string name="navidrome_unfavorite">Remove from favorites</string>
+    <string name="navidrome_favorite_failed">Could not update favorites on the server. Try again.</string>
+    <string name="navidrome_err_not_allowed">This account is not allowed to change favorites on this server.</string>
     <string name="navidrome_err_malformed">The server sent a reply BitChord could not read.</string>
     <string name="navidrome_invalid_url">That is not a valid http or https address</string>
     <string name="navidrome_password_required">Enter the account password</string>

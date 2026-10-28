@@ -442,4 +442,58 @@ class NavidromeClientTest {
         server.shutdown()
         assertTrue(dead.listPlaylists().exceptionOrNull() is NavidromeException.Network)
     }
+
+    // ── Favorites ────────────────────────────────────────────────────────
+
+    @Test
+    fun `starred songs are listed without blank ids and the server's order is kept`() = runTest {
+        server.enqueue(
+            ok(
+                """"starred2":{"song":[
+                  {"id":"7","title":"Second"},
+                  {"id":"","title":"No id"},
+                  {"id":"3","title":"First"}
+                ]}""",
+            ),
+        )
+        val songs = client().starredSongs().getOrThrow()
+        assertEquals(listOf("7", "3"), songs.map { it.id })
+        assertEquals("/rest/getStarred2", server.takeRequest().requestUrl!!.encodedPath)
+    }
+
+    @Test
+    fun `an account with no favorites gets an empty list`() = runTest {
+        server.enqueue(ok("\"starred2\":{}"))
+        server.enqueue(ok("\"x\":1"))
+        assertTrue(client().starredSongs().getOrThrow().isEmpty())
+        assertTrue(client().starredSongs().getOrThrow().isEmpty())
+    }
+
+    @Test
+    fun `starring and unstarring call star and unstar with the track id`() = runTest {
+        server.enqueue(ok("\"x\":1"))
+        server.enqueue(ok("\"x\":1"))
+        assertTrue(client().setStarred("42", starred = true).isSuccess)
+        assertTrue(client().setStarred("42", starred = false).isSuccess)
+
+        val star = server.takeRequest().requestUrl!!
+        assertEquals("/rest/star", star.encodedPath)
+        assertEquals("42", star.queryParameter("id"))
+        val unstar = server.takeRequest().requestUrl!!
+        assertEquals("/rest/unstar", unstar.encodedPath)
+        assertEquals("42", unstar.queryParameter("id"))
+    }
+
+    @Test
+    fun `a login that may not change favorites gets its own failure`() = runTest {
+        server.enqueue(failed(50))
+        val failure = client().setStarred("42", starred = true).exceptionOrNull()
+        assertTrue(failure is NavidromeException.NotAllowed)
+    }
+
+    @Test
+    fun `a failed star is not reported as success`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(503))
+        assertTrue(client().setStarred("42", starred = true).exceptionOrNull() is NavidromeException.ServerError)
+    }
 }

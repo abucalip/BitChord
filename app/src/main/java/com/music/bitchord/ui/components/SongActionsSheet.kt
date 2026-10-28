@@ -140,6 +140,13 @@ fun SongActionsSheet(
     onUploadToWebDav: (() -> Unit)? = null,
     onToggleLike: () -> Unit,
     onToggleDislike: () -> Unit,
+    /**
+     * Whether a Navidrome track is a favorite on its server. Null for every
+     * other track, which hides the row. With [onToggleServerFavorite] it is the
+     * only favorite control; the caller passes [signedIn] = false for these.
+     */
+    serverFavorite: Boolean? = null,
+    onToggleServerFavorite: (() -> Unit)? = null,
     onAddToPlaylist: () -> Unit,
     onOpenAlbum: (String) -> Unit,
     onOpenArtist: (String) -> Unit,
@@ -270,6 +277,18 @@ fun SongActionsSheet(
                 )
             }
             GroupSeparator(palette)
+        }
+
+        if (serverFavorite != null && onToggleServerFavorite != null && !isOffline) {
+            ActionRow(
+                icon = if (serverFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                label = stringResource(
+                    if (serverFavorite) R.string.navidrome_unfavorite else R.string.navidrome_favorite,
+                ),
+                tint = if (serverFavorite) palette.accent else null,
+                accent = palette.accent,
+                onClick = onToggleServerFavorite,
+            )
         }
 
         if (signedIn && !isOffline) {

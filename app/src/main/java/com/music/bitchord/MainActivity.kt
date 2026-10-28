@@ -257,6 +257,7 @@ import com.music.bitchord.ui.components.isGlassSupported
 import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
+import com.music.bitchord.data.sources.navidrome.NavidromeException
 import com.music.bitchord.ui.components.ListenBrainzTokenAlert
 import com.music.bitchord.ui.components.MiniPlayer
 import com.music.bitchord.ui.components.QueueActionNotice
@@ -782,6 +783,16 @@ private fun BitChordApp(
     LaunchedEffect(signedIn, activeJamInviteCode) {
         if (signedIn && activeJamInviteCode != null) {
             navigator.pushAll(AppRoute.Settings, AppRoute.ListenTogether)
+        }
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.serverFavoriteFailures.collect { failure ->
+            val message = if (failure is NavidromeException.NotAllowed) {
+                R.string.navidrome_err_not_allowed
+            } else {
+                R.string.navidrome_favorite_failed
+            }
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
     val account by viewModel.account.collectAsStateWithLifecycle()
@@ -2800,6 +2811,7 @@ private fun BitChordApp(
                                 },
                             )
                         } else if (pageRoute is AppRoute.NavidromeLibrary) {
+                            val favoritesLabel = stringResource(R.string.navidrome_favorites)
                             NavidromeLibraryScreen(
                                 barsHeight = { floatingBarsHeight.intValue },
                                 configId = pageRoute.configId,
@@ -2816,6 +2828,17 @@ private fun BitChordApp(
                                         AppRoute.NavidromePlaylist(pageRoute.configId, it.id, it.name, it.artworkRef),
                                     )
                                 },
+                                onPlayFavorites = { songs, index ->
+                                    playFrom(
+                                        songs,
+                                        index,
+                                        QueueSource(favoritesLabel, PlaybackSourceType.BROWSE, "navidrome:${pageRoute.configId}:favorites"),
+                                    )
+                                },
+                                onSongLongPress = openSongMenu,
+                                onSongSwipe = onSongSwipe,
+                                currentSong = player.song,
+                                isPlaying = player.isPlaying,
                                 contentPadding = listPadding,
                             )
                         } else if (pageRoute is AppRoute.NavidromeArtist) {
@@ -4283,11 +4306,20 @@ private fun BitChordApp(
                 value = song.localUri == null &&
                     withContext(Dispatchers.IO) { AudioCache.holds(song.videoId) }
             }
+            // A Navidrome track has no YouTube account behind it, so the YouTube
+            // controls stay hidden and its favorite is the server's own.
+            val navidromeTrack = SourceRegistry.isNavidromeTrack(song.videoId)
             SongActionsSheet(
                 song = song,
                 presentation = presentation,
-                signedIn = signedIn,
+                signedIn = signedIn && !navidromeTrack,
                 likeStatus = likeStatuses[song.videoId] ?: LikeStatus.INDIFFERENT,
+                serverFavorite = if (navidromeTrack) {
+                    likeStatuses[song.videoId] == LikeStatus.LIKE
+                } else {
+                    null
+                },
+                onToggleServerFavorite = if (navidromeTrack) ({ viewModel.toggleLike(song.videoId) }) else null,
                 onPlayNext = { playNext(song); songActions = null },
                 onAddToQueue = { addToQueue(song); songActions = null },
                 onStartRadio = { startRadio(song); songActions = null },

@@ -2,7 +2,7 @@
 
 ## Status and delivery strategy
 
-- **Status:** Proposed; implementation has not started.
+- **Status:** Phase 0 and Phase 1 are merged (PRs #1, #2). Phase 2 is in progress, delivered as two PRs: the browsing interface and API first, the UI and artwork second.
 - **Goal:** Add native Navidrome support to BitChord without replacing its existing playback engine.
 - **Delivery:** Small, reviewable pull requests, starting with authenticated search and playback.
 - **Principle:** Navidrome is a first-class source, not a custom addon. Preserve existing source behavior and avoid unrelated refactors.
@@ -191,6 +191,27 @@ Audit of `main` at `6e93ebbd`. Read-only.
 - Passwords are absent from ordinary source configuration.
 
 **Out of scope:** artist/album browsing, playlists, favorites, ratings, scrobbling, offline mode, and transcoding controls.
+
+**Status: done** (see Phase 1 outcome).
+
+### Phase 1 outcome
+
+Merged in PR #2 (`301595e3` on `main`). Full suite: 1,157 tests, 0 failures, 1 skipped; `assembleDevDebug` builds.
+
+Delivered as planned, with these specifics and deviations:
+
+- **Cleartext:** `usesCleartextTraffic` is `true` app-wide. An address without a scheme is taken as https; `http://` must be typed explicitly and the editor warns while it is in use. This is the implementation of the per-server opt-in.
+- **Credentials:** `NavidromeCredentials` is a separate encrypted file (`bitchord_navidrome`), excluded from backups, deleted with the source, and refuses to write to the plain-text fallback. The client is built per call from the stored login, so an edited password applies without rebuilding the source.
+- **Search:** the Search tab's Addons mode now includes Navidrome. Artwork is deliberately absent from search rows (see Phase 2).
+- **Strings:** new UI strings are translated in every locale file because `LocaleStringsTest` requires it. The translations are machine-written and unreviewed.
+
+**Known gaps carried forward**
+
+- Not verified on a device or against a real Navidrome server; unit tests only.
+- Lint and static analysis were not run.
+- A missing track is not detected before playback (no `getSong` round trip).
+- Source health is re-probed when the URL changes, not when only the password changes.
+- Self-signed certificates surface as a TLS error; no custom CA support.
 
 ### Phase 2 — Browse artists, albums, tracks, and artwork
 

@@ -2,7 +2,7 @@
 
 ## Status and delivery strategy
 
-- **Status:** Phase 0 and Phase 1 are merged (PRs #1, #2). Phases 2 and 3 are merged (PRs #3, #4, #5). A pre-playback missing-track check and an opt-in live test followed (PR #6). **Emulator verification (11.1) has since been run, found one real bug (below Lossless, no Navidrome track would play) and fixed it; results are under "Live verification". What remains is in section 11: polish, then the upstream decision.**
+- **Status:** Phase 0 and Phase 1 are merged (PRs #1, #2). Phases 2 and 3 are merged (PRs #3, #4, #5). A pre-playback missing-track check and an opt-in live test followed (PR #6). **Emulator verification (11.1) has since been run, found one real bug (below Lossless, no Navidrome track would play) and fixed it (PR #7); results are under "Live verification". What remains is in section 11: polish, then the upstream decision.**
 - **Goal:** Add native Navidrome support to BitChord without replacing its existing playback engine.
 - **Delivery:** Small, reviewable pull requests, starting with authenticated search and playback.
 - **Principle:** Navidrome is a first-class source, not a custom addon. Preserve existing source behavior and avoid unrelated refactors.
@@ -24,7 +24,7 @@
 - Shipping playlists, favorites, ratings, scrobbling, offline playback, or transcoding controls in the first PR.
 - Claiming lossless or bit-perfect playback solely from a source capability flag.
 - Requiring server-side modifications.
-- Supporting the TV, Wear OS, or web clients. Scope is the phone app (`app`) only. Other modules must still compile if they consume shared code touched by this work (see Phase 0), but they get no Navidrome UI or behavior.
+- Supporting the TV, Wear OS, or web clients. Scope is the phone app (`app`) only. The other modules (`tv`, `wearos`, `web`) get no Navidrome UI or behavior and are not built or tested for this work.
 - Custom CA trust, self-signed certificate handling, or certificate pinning in the first milestone (revisit in Phase 3).
 - Routing Navidrome traffic through the `backend` module; the phone app talks to the server directly, which is required for LAN servers.
 
@@ -41,7 +41,7 @@ The targeted audit identified these areas; re-check them on the current target b
 - `app/src/main/java/com/music/bitchord/ui/screens/SourcesScreen.kt` — source-management UI; add a dedicated Navidrome editor rather than reusing the addon editor.
 - `shared/src/commonMain/kotlin/com/music/bitchord/data/model/Models.kt` — shared song model; map metadata into existing fields first.
 
-Scope is the phone app only. `shared` is touched only as needed for `SourceKind`/models and must keep the other modules compiling.
+Scope is the phone app only. `shared` is touched only as needed for `SourceKind`/models. Keeping the other modules compiling is out of scope (see section 10).
 
 The project already uses Ktor, kotlinx.serialization, Media3/ExoPlayer, and an OkHttp-backed playback data source. Reuse existing dependencies and conventions unless testing demonstrates a gap.
 
@@ -435,7 +435,7 @@ Ticked only where there is evidence; the notes say what is missing.
 - [x] Errors are useful, safe, and recoverable.
 - [x] Automated tests cover authentication, parsing, mapping, source identity, and stream resolution.
 - [x] Existing sources and playback behavior pass regression tests. *(1,220 tests, 0 failures; after the quality-ceiling fix the `app` module runs 1,209 with 16 skipped live tests and 0 failures.)*
-- [ ] Other modules still compile after shared changes (no new features there). *(No references to `SourceKind` outside `app`, and `tv` built with the test run; `wearos` and `web` were not built.)*
+- Waived: other modules still compile after shared changes. *(Only the phone app (`app`) is in scope, so `tv`, `wearos` and `web` are not built or tested for this work. For reference, no code outside `app` references `SourceKind`, and `tv` happened to build with the test run.)*
 - [ ] Required CI/build checks pass on the exact PR head SHA. *(The repository reports no CI checks on these branches; tests were run locally.)*
 - [x] Any waived or unperformed manual testing is reported honestly.
 - [x] PR description records scope, tests, limitations, and follow-up work.
@@ -562,7 +562,7 @@ avdmanager delete avd -n bitchord-36  # optional: remove the virtual phone
 ### 11.2 Quality gates not yet run
 
 - **Lint and static analysis:** run `./gradlew lintDevDebug` (and whatever static analysis the project uses) and fix findings in the Navidrome files. Not run so far.
-- **Other modules:** `tv` built as part of the test run; build `wearos` and `web` as well to confirm they still compile (find the task names with `./gradlew tasks`). No code outside `app` references `SourceKind`, so a failure is not expected.
+- **Other modules:** not needed. Only the phone app (`app`) is built and tested for this work; `tv`, `wearos` and `web` are out of scope.
 - **CI:** the repository reports no CI checks on these branches, so "required CI passes" in section 10 cannot be ticked. Decide whether to add a workflow that runs `./gradlew testDevDebugUnitTest` and `assembleDevDebug`; the live test skips itself without the `NAVIDROME_*` variables, so it is safe there.
 - **Translations:** 13 strings, all named `navidrome_*` or `add_navidrome*`, are machine-written in 18 locale files under `app/src/main/res/values-*`. Have a speaker of each language check them, or at least the ones for the languages that matter most.
 
@@ -584,7 +584,7 @@ avdmanager delete avd -n bitchord-36  # optional: remove the virtual phone
 
 ### 11.4 Upstream
 
-All of this work is on the fork (`abucalip/BitChord`, PRs #1 to #6). **Nothing has been proposed to the upstream project** (`kushagrasinghx/BitChord`). Before opening anything there:
+All of this work is on the fork (`abucalip/BitChord`, PRs #1 to #7). **Nothing has been proposed to the upstream project** (`kushagrasinghx/BitChord`). Before opening anything there:
 
 1. `CONTRIBUTING.md` says substantial features should be discussed in an issue first; open one that links this document.
 2. It also says new work should branch from the current active version branch rather than `main`. Only `main` (latest tag `v1.8.1`) exists on the remotes, so ask the maintainers which branch to target.

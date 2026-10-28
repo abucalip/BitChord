@@ -64,6 +64,20 @@ class NavidromeArtKeyer : Keyer<NavidromeArt> {
     }
 }
 
+/**
+ * The same key as [NavidromeArtKeyer] for a cover held as a reference string,
+ * so the reference and the image model share one cache entry. Any other string
+ * keeps its own key, as Coil would have it.
+ */
+class NavidromeArtReferenceKeyer : Keyer<String> {
+    override fun key(data: String, options: Options): String = referenceCacheKey(data)
+
+    companion object {
+        fun referenceCacheKey(text: String): String =
+            parseNavidromeArtReference(text)?.let(NavidromeArtKeyer::keyOf) ?: text
+    }
+}
+
 class NavidromeArtFetcher private constructor(private val art: NavidromeArt) : Fetcher {
 
     override suspend fun fetch(): FetchResult? = withContext(Dispatchers.IO) {

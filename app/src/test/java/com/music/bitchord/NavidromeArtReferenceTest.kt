@@ -1,6 +1,8 @@
 package com.music.bitchord
 
 import com.music.bitchord.data.sources.navidrome.NavidromeArt
+import com.music.bitchord.data.sources.navidrome.NavidromeArtKeyer
+import com.music.bitchord.data.sources.navidrome.NavidromeArtReferenceKeyer
 import com.music.bitchord.data.sources.navidrome.parseNavidromeArtReference
 import com.music.bitchord.data.sources.navidrome.toReference
 import org.junit.Assert.assertEquals
@@ -32,5 +34,17 @@ class NavidromeArtReferenceTest {
         assertNull(parseNavidromeArtReference("navidrome-art:cfg-1/al-42/x"))
         assertNull(parseNavidromeArtReference("navidrome-art:/al-42/150"))
         assertNull(parseNavidromeArtReference("navidrome-art:cfg-1//150"))
+    }
+
+    @Test
+    fun aReferenceAndItsImageShareOneCacheKeyByServerAndReference() {
+        val art = NavidromeArt("cfg-1", "al-42", 150)
+        assertEquals("navidrome:cfg-1:al-42:150", NavidromeArtKeyer.keyOf(art))
+        assertEquals(NavidromeArtKeyer.keyOf(art), NavidromeArtReferenceKeyer.referenceCacheKey(art.toReference()))
+    }
+
+    @Test
+    fun otherStringsKeepTheirOwnKey() {
+        assertEquals("https://x/y", NavidromeArtReferenceKeyer.referenceCacheKey("https://x/y"))
     }
 }

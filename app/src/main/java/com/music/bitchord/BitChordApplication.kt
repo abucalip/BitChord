@@ -23,6 +23,7 @@ import com.music.bitchord.data.canvas.CanvasCache
 import com.music.bitchord.data.smb.SmbCoverFetcher
 import com.music.bitchord.data.sources.navidrome.NavidromeArtFetcher
 import com.music.bitchord.data.sources.navidrome.NavidromeArtKeyer
+import com.music.bitchord.data.sources.navidrome.NavidromeArtReferenceKeyer
 import com.music.bitchord.data.webdav.WebDavCoilAuth
 import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.data.spotify.SpotifyLibrary
@@ -220,6 +221,7 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
                 // Navidrome covers are fetched with the login added per
                 // request and cached by server and reference, never by URL.
                 add(NavidromeArtKeyer())
+                add(NavidromeArtReferenceKeyer())
                 add(NavidromeArtFetcher.Factory())
                 add(NavidromeArtFetcher.ReferenceFactory())
                 // Artist signatures are usually SVG, which Coil can't

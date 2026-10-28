@@ -31,6 +31,12 @@ interface BrowsableMusicLibrary {
     /** The tracks of one album in play order, as [Song]s that play back through this source. */
     suspend fun albumTracks(albumId: String): Result<List<Song>>
 
+    /** The playlists the server lists for this login, in its order. Read-only. */
+    suspend fun playlists(): Result<List<LibraryPlaylist>>
+
+    /** The tracks of one playlist in the order the server keeps them, as [Song]s that play back through this source. */
+    suspend fun playlistTracks(playlistId: String): Result<List<Song>>
+
     /**
      * An authenticated URL for [LibraryArtist.artworkRef] or [LibraryAlbum.artworkRef],
      * or null if the source can't build one.
@@ -59,6 +65,13 @@ data class LibraryAlbum(
     val artist: String,
     val artistId: String?,
     val year: Int?,
+    val trackCount: Int?,
+    val artworkRef: String?,
+)
+
+data class LibraryPlaylist(
+    val id: String,
+    val name: String,
     val trackCount: Int?,
     val artworkRef: String?,
 )

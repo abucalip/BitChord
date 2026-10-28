@@ -42,6 +42,14 @@ sealed interface AppRoute {
         val artist: String,
         val artworkRef: String?,
     ) : AppRoute
+
+    /** One playlist's tracks on a Navidrome server. Read-only. */
+    data class NavidromePlaylist(
+        val configId: String,
+        val playlistId: String,
+        val name: String,
+        val artworkRef: String?,
+    ) : AppRoute
 }
 
 /**

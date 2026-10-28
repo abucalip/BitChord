@@ -341,7 +341,7 @@ Scope each separately with its own design and tests:
 
 #### 4.1 Playlists (read-only): design
 
-Status: in progress on branch `navidrome-playlists`. Read-only: no create, rename, add or remove, and no write-back to the server.
+Status: implemented on branch `navidrome-playlists`. Read-only: no create, rename, add or remove, and no write-back to the server. Local results: `./gradlew testDevDebugUnitTest` BUILD SUCCESSFUL (1,245 tests in the suite, 0 failures, 0 errors, 16 skipped: the opt-in live tests, which were not run); `assembleDevDebug` BUILD SUCCESSFUL. Not run: the emulator or a device, and the live server. The queue label and the route title are not unit-tested.
 
 - **API.** `getPlaylists` (no parameters, so the playlists this login can see) returns `playlists.playlist[]` with `id`, `name`, `songCount`, `duration`, `coverArt`. `getPlaylist?id=` returns `playlist.entry[]`, the tracks in the server's order. Both are read-only Subsonic methods already covered by the existing token authentication. A playlist that has been deleted comes back as error 70 and maps to `NotFound`.
 - **Mapping.** A playlist maps to `LibraryPlaylist(id, name, trackCount, artworkRef)`, a sibling of `LibraryAlbum`. Its tracks map through the same `toSong` as album tracks, so each track keeps the `<configId>|<trackId>` identity and resolves through this server. Playlist order is kept as the server gives it; album disc/track sorting does not apply.

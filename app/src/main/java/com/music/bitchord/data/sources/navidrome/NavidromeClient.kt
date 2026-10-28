@@ -112,6 +112,23 @@ class NavidromeClient(
         call("getArtist", "id" to artistId)
             .map { it.artist?.album.orEmpty().filter { album -> album.id.isNotBlank() } }
 
+    /**
+     * The playlists this login can see, via `getPlaylists`. Read-only: nothing
+     * here creates, renames or changes a playlist on the server.
+     */
+    suspend fun listPlaylists(): Result<List<NavidromePlaylist>> = call("getPlaylists").map { response ->
+        response.playlists?.playlist.orEmpty().filter { it.id.isNotBlank() }
+    }
+
+    /**
+     * The tracks of one playlist, via `getPlaylist`, in the order the server gives
+     * them. Not re-sorted: a playlist's order is the listener's, not the album's.
+     */
+    suspend fun playlistSongs(playlistId: String): Result<List<NavidromeSong>> =
+        call("getPlaylist", "id" to playlistId).map { response ->
+            response.playlist?.entry.orEmpty().filter { it.id.isNotBlank() }
+        }
+
     /** The tracks of one album in play order (disc, then track), via `getAlbum`. */
     suspend fun albumSongs(albumId: String): Result<List<NavidromeSong>> =
         call("getAlbum", "id" to albumId).map { response ->

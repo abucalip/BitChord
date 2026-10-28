@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Button
@@ -65,6 +66,7 @@ import com.music.bitchord.data.sources.BrowsableMusicLibrary
 import com.music.bitchord.data.sources.LibraryAlbum
 import com.music.bitchord.data.sources.LibraryArtist
 import com.music.bitchord.data.sources.LibraryPage
+import com.music.bitchord.data.sources.LibraryPlaylist
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.navidrome.NavidromeArt
 import com.music.bitchord.ui.components.MessageState
@@ -77,6 +79,25 @@ import com.music.bitchord.ui.components.songListSkeleton
 
 /** Rows loaded at a time; the next batch is requested as the list nears its end. */
 private const val PAGE = 50
+
+/** Segments of the library screen. */
+private const val TAB_ARTISTS = 0
+private const val TAB_ALBUMS = 1
+
+/**
+ * A listing the server returns whole. [fetch] runs once, on the first page; later
+ * pages are slices of that result, so paging never asks the server twice.
+ */
+private fun <T> wholeListPages(fetch: suspend () -> Result<List<T>>): PagedList<T> {
+    var all: List<T>? = null
+    return PagedList { offset ->
+        all?.let { Result.success(LibraryPage.of(it, offset, PAGE)) }
+            ?: fetch().map { loaded ->
+                all = loaded
+                LibraryPage.of(loaded, offset, PAGE)
+            }
+    }
+}
 
 /** How many rows from the end of the list the next batch is asked for. */
 private const val PREFETCH = 8
@@ -144,10 +165,10 @@ private fun rememberLibrary(configId: String): BrowsableMusicLibrary? {
 }
 
 /**
- * A Navidrome server's library: Artists and Albums.
+ * A Navidrome server's library: Artists, Albums and Playlists.
  *
- * Artists come as one lightweight listing shown a page at a time; albums are
- * genuinely paged by the server, so a large library is never loaded whole.
+ * Artists and playlists come as one lightweight listing shown a page at a time;
+ * albums are genuinely paged by the server, so a large library is never loaded whole.
  * Every state a network list can be in has its own face: loading skeletons, an
  * empty library, an error with Try Again (also at the foot of a list when only
  * the next batch failed), and a server that has gone away.
@@ -157,6 +178,7 @@ internal fun NavidromeLibraryScreen(
     configId: String,
     onOpenArtist: (LibraryArtist) -> Unit,
     onOpenAlbum: (LibraryAlbum) -> Unit,
+    onOpenPlaylist: (LibraryPlaylist) -> Unit,
     contentPadding: PaddingValues,
     barsHeight: () -> Int,
     modifier: Modifier = Modifier,
@@ -170,17 +192,9 @@ internal fun NavidromeLibraryScreen(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
-    val artists = remember(library) {
-        // The server lists artists whole; fetched once and paged over in memory.
-        var all: List<LibraryArtist>? = null
-        PagedList<LibraryArtist> { offset ->
-            all?.let { Result.success(LibraryPage.of(it, offset, PAGE)) }
-                ?: library.artists().map { loaded ->
-                    all = loaded
-                    LibraryPage.of(loaded, offset, PAGE)
-                }
-        }
-    }
+    // Listings the server does not page: fetched once, then paged over in memory.
+    val artists = remember(library) { wholeListPages { library.artists() } }
+    val playlists = remember(library) { wholeListPages { library.playlists() } }
     var albumPage by rememberSaveable(configId, stateSaver = albumPageSaver) {
         mutableStateOf(LibraryPage<LibraryAlbum>(emptyList(), 0))
     }
@@ -190,7 +204,11 @@ internal fun NavidromeLibraryScreen(
     LaunchedEffect(albums) {
         snapshotFlow { albums.items }.collect { albumPage = albums.snapshot().capped() }
     }
-    val current = if (tab == 0) artists else albums
+    val current = when (tab) {
+        TAB_ARTISTS -> artists
+        TAB_ALBUMS -> albums
+        else -> playlists
+    }
 
     // Starts the visible list, then extends it whenever the end comes near.
     LaunchedEffect(current) {
@@ -205,14 +223,18 @@ internal fun NavidromeLibraryScreen(
     LazyColumn(state = listState, modifier = modifier.fillMaxSize(), contentPadding = contentPadding.withoutBottom()) {
         item(key = "tabs") {
             SegmentedControl(
-                options = listOf(stringResource(R.string.artists), stringResource(R.string.albums)),
+                options = listOf(
+                    stringResource(R.string.artists),
+                    stringResource(R.string.albums),
+                    stringResource(R.string.playlists),
+                ),
                 selectedIndex = tab,
                 onSelect = { tab = it },
                 modifier = Modifier.padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
             )
         }
-        if (tab == 0) {
-            items(artists.items.size, key = { "artist:${artists.items[it].id}" }) { index ->
+        when (tab) {
+            TAB_ARTISTS -> items(artists.items.size, key = { "artist:${artists.items[it].id}" }) { index ->
                 val artist = artists.items[index]
                 BrowseRow(
                     title = artist.name,
@@ -224,11 +246,22 @@ internal fun NavidromeLibraryScreen(
                 )
                 if (index < artists.items.lastIndex) RowRule()
             }
-        } else {
-            items(albums.items.size, key = { "album:${albums.items[it].id}" }) { index ->
+            TAB_ALBUMS -> items(albums.items.size, key = { "album:${albums.items[it].id}" }) { index ->
                 val album = albums.items[index]
                 AlbumRow(configId, album) { onOpenAlbum(album) }
                 if (index < albums.items.lastIndex) RowRule()
+            }
+            else -> items(playlists.items.size, key = { "playlist:${playlists.items[it].id}" }) { index ->
+                val playlist = playlists.items[index]
+                BrowseRow(
+                    title = playlist.name,
+                    subtitle = null,
+                    art = playlist.artworkRef?.let { NavidromeArt(configId, it, ART_ROW_PX) },
+                    placeholder = Icons.AutoMirrored.Rounded.QueueMusic,
+                    circular = false,
+                    onClick = { onOpenPlaylist(playlist) },
+                )
+                if (index < playlists.items.lastIndex) RowRule()
             }
         }
         item(key = "state:$tab") {
@@ -309,6 +342,82 @@ internal fun NavidromeAlbumScreen(
     currentSong: Song?,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
+) = NavidromeTrackScreen(
+    configId = configId,
+    key = albumId,
+    title = title,
+    artist = artist,
+    artworkRef = artworkRef,
+    load = { it.albumTracks(albumId) },
+    albumOrder = true,
+    onPlay = onPlay,
+    onSongLongPress = onSongLongPress,
+    onSongSwipe = onSongSwipe,
+    contentPadding = contentPadding,
+    barsHeight = barsHeight,
+    currentSong = currentSong,
+    isPlaying = isPlaying,
+    modifier = modifier,
+)
+
+/**
+ * One playlist: the same page as an album, with the tracks in the order the
+ * server keeps them. Read-only; nothing here changes the playlist.
+ */
+@Composable
+internal fun NavidromePlaylistScreen(
+    configId: String,
+    playlistId: String,
+    name: String,
+    artworkRef: String?,
+    onPlay: (List<Song>, Int) -> Unit,
+    onSongLongPress: (Song) -> Unit,
+    onSongSwipe: (Song) -> Unit,
+    contentPadding: PaddingValues,
+    barsHeight: () -> Int,
+    currentSong: Song?,
+    isPlaying: Boolean,
+    modifier: Modifier = Modifier,
+) = NavidromeTrackScreen(
+    configId = configId,
+    key = playlistId,
+    title = name,
+    artist = "",
+    artworkRef = artworkRef,
+    load = { it.playlistTracks(playlistId) },
+    albumOrder = false,
+    onPlay = onPlay,
+    onSongLongPress = onSongLongPress,
+    onSongSwipe = onSongSwipe,
+    contentPadding = contentPadding,
+    barsHeight = barsHeight,
+    currentSong = currentSong,
+    isPlaying = isPlaying,
+    modifier = modifier,
+)
+
+/**
+ * A header (cover, Play and Shuffle) over a list of tracks, shared by albums and
+ * playlists. [load] fetches the tracks for [key]; [albumOrder] says whether the
+ * rows show the album's own track numbers or their position in the list.
+ */
+@Composable
+private fun NavidromeTrackScreen(
+    configId: String,
+    key: String,
+    title: String,
+    artist: String,
+    artworkRef: String?,
+    load: suspend (BrowsableMusicLibrary) -> Result<List<Song>>,
+    albumOrder: Boolean,
+    onPlay: (List<Song>, Int) -> Unit,
+    onSongLongPress: (Song) -> Unit,
+    onSongSwipe: (Song) -> Unit,
+    contentPadding: PaddingValues,
+    barsHeight: () -> Int,
+    currentSong: Song?,
+    isPlaying: Boolean,
+    modifier: Modifier,
 ) {
     val library = rememberLibrary(configId)
     if (library == null) {
@@ -318,10 +427,10 @@ internal fun NavidromeAlbumScreen(
     var attempt by remember { mutableIntStateOf(0) }
     var state by remember { mutableStateOf<UiState<List<Song>>>(UiState.Loading) }
     var failure by remember { mutableStateOf<Throwable?>(null) }
-    LaunchedEffect(library, albumId, attempt) {
+    LaunchedEffect(library, key, attempt) {
         state = UiState.Loading
         failure = null
-        state = library.albumTracks(albumId).fold(
+        state = load(library).fold(
             onSuccess = { UiState.Success(it) },
             onFailure = {
                 failure = it
@@ -341,7 +450,7 @@ internal fun NavidromeAlbumScreen(
             )
         }
         when (val s = state) {
-            UiState.Loading -> songListSkeleton(count = 8, keyPrefix = "skeleton:navidrome-album")
+            UiState.Loading -> songListSkeleton(count = 8, keyPrefix = "skeleton:navidrome-track")
             is UiState.Error -> item { Failed(failure) { attempt++ } }
             is UiState.Success -> if (s.data.isEmpty()) {
                 item { MessageState(stringResource(R.string.navidrome_empty)) }
@@ -355,7 +464,7 @@ internal fun NavidromeAlbumScreen(
                         onClick = { onPlay(songs, index) },
                         onLongPress = { onSongLongPress(song) },
                         onSwipeToQueue = { onSongSwipe(song) },
-                        trackNumber = song.trackNumber ?: (index + 1),
+                        trackNumber = if (albumOrder) song.trackNumber ?: (index + 1) else index + 1,
                         isCurrent = isCurrentRow(song),
                         isPlaying = isCurrentRow(song) && isPlaying,
                         searchPlayingStyle = true,

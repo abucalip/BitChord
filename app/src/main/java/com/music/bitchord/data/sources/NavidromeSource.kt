@@ -149,14 +149,22 @@ class NavidromeSource(
         browse("artist albums") { client -> client.artistAlbums(artistId).map { it.map(::toAlbum) } }
 
     override suspend fun albumTracks(albumId: String): Result<List<Song>> =
-        browse("album tracks") { client ->
-            client.albumSongs(albumId).map { songs ->
-                songs.map { song ->
-                    synchronized(rows) { rows[song.id] = song }
-                    toSong(song)
-                }
-            }
+        browse("album tracks") { client -> client.albumSongs(albumId).map(::toTracks) }
+
+    override suspend fun playlists(): Result<List<LibraryPlaylist>> = browse("playlist list") { client ->
+        client.listPlaylists().map { list ->
+            list.map { LibraryPlaylist(it.id, it.name.ifBlank { it.id }, it.songCount, it.coverArt) }
         }
+    }
+
+    override suspend fun playlistTracks(playlistId: String): Result<List<Song>> =
+        browse("playlist tracks") { client -> client.playlistSongs(playlistId).map(::toTracks) }
+
+    /** Remembers each track for [stream]'s check, and maps it to a [Song] in this server's identity. */
+    private fun toTracks(songs: List<NavidromeSong>): List<Song> = songs.map { song ->
+        synchronized(rows) { rows[song.id] = song }
+        toSong(song)
+    }
 
     override fun artworkUrl(artworkRef: String, sizePx: Int): String? =
         client()?.coverArtUrl(artworkRef, sizePx)?.getOrNull()

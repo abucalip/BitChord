@@ -4,6 +4,7 @@ import com.music.bitchord.data.sources.BrowsableMusicLibrary
 import com.music.bitchord.data.sources.LibraryAlbum
 import com.music.bitchord.data.sources.LibraryArtist
 import com.music.bitchord.data.sources.LibraryPage
+import com.music.bitchord.data.sources.LibraryPlaylist
 import com.music.bitchord.data.sources.NavidromeSource
 import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceHealth
@@ -411,5 +412,61 @@ class NavidromeSourceTest {
         s.stream("42", StreamRequest.Best)
         s.stream("42", StreamRequest.Best)
         assertEquals(1, serverA.requestCount)
+    }
+
+    // ── Playlists ─────────────────────────────────────────────────────────
+
+    @Test
+    fun `playlists map to library playlists and an unnamed one shows its id`() = runTest {
+        serverA.enqueue(
+            ok("\"playlists\":{\"playlist\":[{\"id\":\"p1\",\"name\":\"Road\",\"songCount\":12,\"coverArt\":\"pl-1\"},{\"id\":\"p2\",\"name\":\"\"}]}"),
+        )
+        val playlists = source(config(serverA, "a")).playlists().getOrThrow()
+        assertEquals(LibraryPlaylist("p1", "Road", 12, "pl-1"), playlists[0])
+        assertEquals(LibraryPlaylist("p2", "p2", null, null), playlists[1])
+    }
+
+    @Test
+    fun `playlist tracks play back through their own server and stay isolated`() = runTest {
+        val body = "\"playlist\":{\"id\":\"p1\",\"entry\":[{\"id\":\"42\",\"title\":\"One\",\"track\":9}]}"
+        serverA.enqueue(ok(body))
+        serverB.enqueue(ok(body))
+        val a = source(config(serverA, "id-a")).playlistTracks("p1").getOrThrow().single()
+        val b = source(config(serverB, "id-b")).playlistTracks("p1").getOrThrow().single()
+        assertEquals("id-a" to "42", SourceRegistry.parseTrackKey(a.videoId))
+        assertEquals("id-b" to "42", SourceRegistry.parseTrackKey(b.videoId))
+        assertNotEquals(a.videoId, b.videoId)
+        // The playlist id goes only to the server it was listed from.
+        assertEquals("p1", serverA.takeRequest().requestUrl!!.queryParameter("id"))
+        assertEquals("p1", serverB.takeRequest().requestUrl!!.queryParameter("id"))
+    }
+
+    @Test
+    fun `a playlist's tracks are not checked again on play`() = runTest {
+        val s = source(config(serverA, "a"))
+        serverA.enqueue(ok("\"playlist\":{\"id\":\"p1\",\"entry\":[$song]}"))
+        s.playlistTracks("p1").getOrThrow()
+        assertNotNull(s.stream("42", StreamRequest.Best))
+        assertEquals(1, serverA.requestCount)
+    }
+
+    @Test
+    fun `a playlist's tracks keep the server's order`() = runTest {
+        serverA.enqueue(
+            ok("\"playlist\":{\"id\":\"p1\",\"entry\":[{\"id\":\"9\",\"title\":\"B\",\"track\":1},{\"id\":\"4\",\"title\":\"A\",\"track\":2}]}"),
+        )
+        val ids = source(config(serverA, "a")).playlistTracks("p1").getOrThrow().map { SourceRegistry.parseTrackKey(it.videoId)?.second }
+        assertEquals(listOf("9", "4"), ids)
+    }
+
+    @Test
+    fun `playlists are not reached without a login or when the server fails`() = runTest {
+        val signedOut = source(config(serverA, "a"), login = null)
+        assertTrue(signedOut.playlists().isFailure)
+        assertTrue(signedOut.playlistTracks("p1").isFailure)
+        assertEquals("a signed-out source must not contact the server", 0, serverA.requestCount)
+
+        serverA.enqueue(MockResponse().setResponseCode(503))
+        assertTrue(source(config(serverA, "a")).playlists().isFailure)
     }
 }

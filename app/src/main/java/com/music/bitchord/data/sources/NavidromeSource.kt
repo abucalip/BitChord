@@ -174,6 +174,27 @@ class NavidromeSource(
 
     override suspend fun stream(trackId: String, request: StreamRequest): SourceStream? {
         val client = client() ?: return null
+        // A track search or browse has shown this session is known to exist. For
+        // any other (a queue restored after a restart) ask the server first:
+        // `stream` answers a missing id with HTTP 200 and a JSON error body,
+        // which the player would try to decode as audio and fail on. Only a
+        // definitive "not found" is a miss; if the check itself cannot be
+        // completed (slow, offline) playback is still attempted, because
+        // failing the track on a flaky check would be worse than the error the
+        // player would have reported anyway.
+        if (synchronized(rows) { rows[trackId] } == null) {
+            client.getSong(trackId).fold(
+                onSuccess = { found -> synchronized(rows) { rows[trackId] = found } },
+                onFailure = { failure ->
+                    if (failure is CancellationException) throw failure
+                    if (failure is NavidromeException.NotFound) {
+                        TrackLog.d(TAG, "${config.displayName}: track is no longer on the server")
+                        return null
+                    }
+                    TrackLog.w(TAG, "${config.displayName}: could not check the track — ${failure.message}")
+                },
+            )
+        }
         val capKbps = (request as? StreamRequest.Capped)?.maxKbps
         // Built at open time with a fresh salt, and handed straight to the
         // player: never stored, never logged.

@@ -226,11 +226,25 @@ class NavidromeLiveTest {
     }
 
     @Test
-    fun `a missing track does not produce audio`() = runBlocking {
-        val stream = source().stream("no-such-track-id-000", StreamRequest.Best)!!
-        val (code, type, head) = peek(stream.url, 64)
-        println("LIVE missing track: http=$code type=$type sniff=${sniff(head)}")
-        assertTrue("a missing track must not look like audio", type?.startsWith("audio/") != true)
+    fun `a missing track is a clean miss instead of a json error handed to the player`() = runBlocking {
+        val started = System.nanoTime()
+        val stream = source().stream("no-such-track-id-000", StreamRequest.Best)
+        println("LIVE missing track: stream=${if (stream == null) "null (miss)" else "a URL"} in ${(System.nanoTime() - started) / 1_000_000} ms")
+        assertEquals(null, stream)
+    }
+
+    @Test
+    fun `a track never seen this session is checked then streams with its real metadata`() = runBlocking {
+        val lib = source()
+        val song = lib.albumTracks(lib.albums(0, 5).getOrThrow().items.first().id).getOrThrow().first()
+        val (_, trackId) = SourceRegistry.parseTrackKey(song.videoId)!!
+        val fresh = source() // a new instance has seen nothing, like a queue restored after a restart
+        val started = System.nanoTime()
+        val stream = fresh.stream(trackId, StreamRequest.Lossless)!!
+        println("LIVE restored-queue stream: codec=${stream.format.codec} kbps=${stream.format.kbps} duration=${stream.durationSec} in ${(System.nanoTime() - started) / 1_000_000} ms")
+        assertNotNull(stream.format.codec)
+        assertNotNull(stream.durationSec)
+        assertTrue(peek(stream.url, 16).first in setOf(200, 206))
     }
 
     @Test

@@ -2,7 +2,7 @@
 
 ## Status and delivery strategy
 
-- **Status:** Phase 0 and Phase 1 are merged (PRs #1, #2). Phase 2 is merged (PRs #3, #4). Phase 3 is in review (PR #5).
+- **Status:** Phase 0 and Phase 1 are merged (PRs #1, #2). Phases 2 and 3 are merged (PRs #3, #4, #5). A pre-playback missing-track check and an opt-in live test followed (PR #6). Device testing and Phase 4 remain.
 - **Goal:** Add native Navidrome support to BitChord without replacing its existing playback engine.
 - **Delivery:** Small, reviewable pull requests, starting with authenticated search and playback.
 - **Principle:** Navidrome is a first-class source, not a custom addon. Preserve existing source behavior and avoid unrelated refactors.
@@ -209,7 +209,7 @@ Delivered as planned, with these specifics and deviations:
 
 - Not verified on a device or against a real Navidrome server; unit tests only.
 - Lint and static analysis were not run.
-- A missing track is not detected before playback (no `getSong` round trip).
+- A missing track is not detected before playback (no `getSong` round trip). *Resolved in PR #6.*
 - Source health is re-probed when the URL changes, not when only the password changes.
 - Self-signed certificates surface as a TLS error; no custom CA support.
 
@@ -255,6 +255,7 @@ Implemented in PR #5. These are the defined behaviours:
 | Address edited | The server is re-keyed under a new config id, keeping its place in the order and its on/off state. Track ids are only meaningful to the server that issued them, so queued tracks from the old id are never sent to the new server by id; they are re-matched by title, artist and duration like any removed source. The old login is deleted. |
 | Username, password or label edited | Same id. The stored login is replaced, and the Sources screen re-checks the server (a password change alters no config field, so the login store has its own revision counter). |
 | Server deleted | Its login is deleted. Queued tracks are re-matched by metadata, never by id. |
+| Track no longer on the server | `stream` first checks the track with `getSong` (skipped when search or browse has already shown it this session) and treats a definitive "not found" as a miss, so the track is skipped cleanly. Without this the server answers a missing id with HTTP 200 and a JSON error body, which the player would try to decode as audio. If the check itself cannot complete (5 s budget), playback is still attempted. |
 | Duplicate ids on two servers | Each track resolves against its own server (tested through the resolver, not only the source). |
 
 Also: a server with no label is named by host plus any port and path, so two servers on one host are distinguishable. The album header cover scales down on narrow screens and list rows are exposed as buttons.
@@ -268,6 +269,26 @@ Also: a server with no label is named by host plus any port and path, so two ser
 - Two servers given the same explicit label are not flagged.
 - A deleted server's queued tracks are re-matched across other sources, including YouTube, because a deleted config no longer says what kind it was.
 - Still unverified on a device or against a real server.
+
+### Live verification
+
+`NavidromeLiveTest` (opt-in; skipped unless `NAVIDROME_URL`, `NAVIDROME_USER` and `NAVIDROME_PASSWORD` are set, so it never runs in CI and stores no credential) exercises the real client and source against a real server. Read-only; it prints no credential, token or address. Run it with those three variables set:
+
+`NAVIDROME_URL=... NAVIDROME_USER=... NAVIDROME_PASSWORD=... ./gradlew :app:testDevDebugUnitTest --tests com.music.bitchord.NavidromeLiveTest`
+
+Last run against Navidrome 0.64.2 (Subsonic API 1.16.1) over plain `http://` on a LAN: 15 of 15 passed.
+
+Verified against the real server:
+
+- Ping and health; a wrong password is an authentication failure (not a network one) and does not echo the password; a closed port is a network failure.
+- Browsing a library of 735 artists: albums page 50 at a time with no overlap between pages, album tracks in track order with unique keys, an artist's album count matching the server's.
+- Search, including punctuation and a Cyrillic name that exists in the library.
+- Streams: the original (`format=raw`) is real audio and honours range requests (HTTP 206); a 128 kbps cap returns an Ogg transcode; every open uses a fresh salt and the server accepts each.
+- Cover art is an authenticated JPEG.
+- A missing track is a clean miss in a few milliseconds; a track the session has not seen streams with its real codec and duration (the check fills these in for a queue restored after a restart).
+- Two registrations of one server keep distinct track keys for identical server ids.
+
+**Not verified** (needs a device or emulator): the Compose screens (editor, Sources, browse, album), real playback in the player, cover loading through Coil, scroll paging, and, importantly, that the app's cleartext setting lets an `http://` LAN server connect on Android; JVM tests do not enforce that policy. Single-character searches such as `é` or `&` returned nothing; this is unexplained and may simply be no matches.
 
 ### Phase 4 — Optional future features
 
@@ -367,17 +388,19 @@ During implementation, confirm endpoint names, authentication requirements, resp
 
 ## 10. Definition of done
 
-- [ ] User can configure and validate a Navidrome server.
-- [ ] Credentials are stored securely and excluded from logs, exports, and persistent track identities.
-- [ ] Search results map correctly into existing BitChord song models.
-- [ ] A selected result plays through the existing playback engine.
-- [ ] Multiple servers remain isolated when track IDs overlap.
-- [ ] Errors are useful, safe, and recoverable.
-- [ ] Automated tests cover authentication, parsing, mapping, source identity, and stream resolution.
-- [ ] Existing sources and playback behavior pass regression tests.
-- [ ] Other modules still compile after shared changes (no new features there).
-- [ ] Required CI/build checks pass on the exact PR head SHA.
-- [ ] Any waived or unperformed manual testing is reported honestly.
-- [ ] PR description records scope, tests, limitations, and follow-up work.
+Ticked only where there is evidence; the notes say what is missing.
+
+- [x] User can configure and validate a Navidrome server. *(Client and source verified live; the editor itself has not been exercised on a device.)*
+- [x] Credentials are stored securely and excluded from logs, exports, and persistent track identities. *(Separate encrypted store, excluded from backups, never written to the plain fallback; no logging of resolved URLs found. Keystore behaviour not checked on a device.)*
+- [x] Search results map correctly into existing BitChord song models. *(Also verified live.)*
+- [ ] A selected result plays through the existing playback engine. *(Streams verified to return real audio over the same URLs the player is given; the player itself has not been run.)*
+- [x] Multiple servers remain isolated when track IDs overlap. *(Tested through the resolver and live.)*
+- [x] Errors are useful, safe, and recoverable.
+- [x] Automated tests cover authentication, parsing, mapping, source identity, and stream resolution.
+- [x] Existing sources and playback behavior pass regression tests. *(1,220 tests, 0 failures.)*
+- [ ] Other modules still compile after shared changes (no new features there). *(No references to `SourceKind` outside `app`, and `tv` built with the test run; `wearos` and `web` were not built.)*
+- [ ] Required CI/build checks pass on the exact PR head SHA. *(The repository reports no CI checks on these branches; tests were run locally.)*
+- [x] Any waived or unperformed manual testing is reported honestly.
+- [x] PR description records scope, tests, limitations, and follow-up work.
 
 **First milestone:** Complete Phase 0 and Phase 1 only. Begin library browsing after authenticated search and playback are stable.

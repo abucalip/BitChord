@@ -59,6 +59,8 @@ class NavidromeSourceTest {
         """{"subsonic-response":{"status":"ok","version":"1.16.1","type":"navidrome","serverVersion":"0.53.0",$body}}""",
     )
 
+    private fun foundSong(id: String) = ok("\"song\":{\"id\":\"$id\",\"title\":\"t\",\"suffix\":\"flac\",\"duration\":200}")
+
     private val song = """{"id":"42","title":"Song","artist":"Artist","album":"Album","duration":125,"track":7,
         "suffix":"flac","contentType":"audio/flac","bitRate":950,"samplingRate":96000,"bitDepth":24}"""
 
@@ -202,6 +204,7 @@ class NavidromeSourceTest {
     @Test
     fun `each stream open gets a fresh salt`() = runTest {
         val s = source(config(serverA, "a"))
+        serverA.enqueue(foundSong("42"))
         val first = s.stream("42", StreamRequest.Best)!!.url.toHttpUrl().queryParameter("s")
         val second = s.stream("42", StreamRequest.Best)!!.url.toHttpUrl().queryParameter("s")
         assertNotEquals(first, second)
@@ -209,6 +212,7 @@ class NavidromeSourceTest {
 
     @Test
     fun `a capped request asks the server to transcode`() = runTest {
+        serverA.enqueue(foundSong("42"))
         val stream = source(config(serverA, "a")).stream("42", StreamRequest.Capped(128))!!
         assertEquals("128", stream.url.toHttpUrl().queryParameter("maxBitRate"))
         assertEquals(128, stream.format.kbps)
@@ -224,6 +228,7 @@ class NavidromeSourceTest {
     fun `an edited password is used by the same instance`() = runTest {
         var login = NavidromeLogin("alice", "old")
         val s = NavidromeSource(config(serverA, "a"), logins = { login })
+        serverA.enqueue(foundSong("1"))
         val before = s.stream("1", StreamRequest.Best)!!.url.toHttpUrl()
         login = NavidromeLogin("bob", "new")
         val after = s.stream("1", StreamRequest.Best)!!.url.toHttpUrl()
@@ -335,5 +340,66 @@ class NavidromeSourceTest {
         assertEquals(LibraryPage(listOf(5), null), LibraryPage.of(all, 4, 2))
         assertEquals(LibraryPage(emptyList<Int>(), null), LibraryPage.of(all, 99, 2))
         assertEquals(LibraryPage(emptyList<Int>(), null), LibraryPage.of(emptyList<Int>(), 0, 2))
+    }
+
+    // ── Missing tracks ────────────────────────────────────────────────────
+
+    @Test
+    fun `a track the server no longer has is a miss and no stream url is built`() = runTest {
+        serverA.enqueue(
+            MockResponse().setBody("""{"subsonic-response":{"status":"failed","version":"1.16.1","error":{"code":70,"message":"not found"}}}"""),
+        )
+        assertNull(source(config(serverA, "a")).stream("gone", StreamRequest.Best))
+        val url = serverA.takeRequest().requestUrl!!
+        assertEquals("/rest/getSong", url.encodedPath)
+        assertEquals("gone", url.queryParameter("id"))
+    }
+
+    @Test
+    fun `an empty song answer is also a miss`() = runTest {
+        serverA.enqueue(ok("\"x\":1"))
+        assertNull(source(config(serverA, "a")).stream("gone", StreamRequest.Best))
+    }
+
+    @Test
+    fun `a track search has just returned is not checked again`() = runTest {
+        val s = source(config(serverA, "a"))
+        serverA.enqueue(ok("\"searchResult3\":{\"song\":[$song]}"))
+        s.search("song")
+        assertNotNull(s.stream("42", StreamRequest.Best))
+        assertEquals("only the search should have reached the server", 1, serverA.requestCount)
+    }
+
+    @Test
+    fun `an album's tracks are not checked again either`() = runTest {
+        val s = source(config(serverA, "a"))
+        serverA.enqueue(ok("\"album\":{\"song\":[$song]}"))
+        s.albumTracks("alb").getOrThrow()
+        assertNotNull(s.stream("42", StreamRequest.Best))
+        assertEquals(1, serverA.requestCount)
+    }
+
+    @Test
+    fun `the check fills in what a restored queue does not know`() = runTest {
+        serverA.enqueue(foundSong("42"))
+        val stream = source(config(serverA, "a")).stream("42", StreamRequest.Lossless)!!
+        assertEquals("flac", stream.format.codec)
+        assertEquals(200, stream.durationSec)
+    }
+
+    @Test
+    fun `a check that cannot complete does not stop playback`() = runTest {
+        serverA.enqueue(MockResponse().setResponseCode(503))
+        val stream = source(config(serverA, "a")).stream("42", StreamRequest.Best)
+        assertNotNull("a flaky check must not fail the track", stream)
+    }
+
+    @Test
+    fun `an id is checked once and remembered`() = runTest {
+        val s = source(config(serverA, "a"))
+        serverA.enqueue(foundSong("42"))
+        s.stream("42", StreamRequest.Best)
+        s.stream("42", StreamRequest.Best)
+        assertEquals(1, serverA.requestCount)
     }
 }

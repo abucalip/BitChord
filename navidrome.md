@@ -561,7 +561,7 @@ avdmanager delete avd -n bitchord-36  # optional: remove the virtual phone
 
 ### 11.2 Quality gates not yet run
 
-- **Lint and static analysis:** run `./gradlew lintDevDebug` (and whatever static analysis the project uses) and fix findings in the Navidrome files. Not run so far.
+- **Lint and static analysis:** done. `./gradlew :app:lintDevDebug` (the root task aborts on the out-of-scope `wearos` module) now reports no findings in Navidrome files; the remaining `app` findings are outside Navidrome and were left alone.
 - **Other modules:** not needed. Only the phone app (`app`) is built and tested for this work; `tv`, `wearos` and `web` are out of scope.
 - **CI:** the repository reports no CI checks on these branches, so "required CI passes" in section 10 cannot be ticked. Decide whether to add a workflow that runs `./gradlew testDevDebugUnitTest` and `assembleDevDebug`; the live test skips itself without the `NAVIDROME_*` variables, so it is safe there.
 - **Translations:** 13 strings, all named `navidrome_*` or `add_navidrome*`, are machine-written in 18 locale files under `app/src/main/res/values-*`. Have a speaker of each language check them, or at least the ones for the languages that matter most.
@@ -575,7 +575,7 @@ Status after the gap-closing pass (branch `navidrome-gaps`, one commit per gap).
 | Covers are cached in memory only | `NavidromeArtFetcher` | Done in code: cover references use the `navidrome:<configId>:<ref>:<size>` key, never a URL. Coil's existing 100 MB disk cache holds them. Persistence across restarts needs a device check (11.7). |
 | Search result rows have no artwork | `NavidromeSource.toSong` | Done: a row stores `navidrome-art:<configId>/<ref>/<size>` (no login) and a Coil fetcher loads it. Needs a live check (11.7). |
 | Capped (transcoded) streams show an unknown codec | `NavidromeSource.stream` | Done: codec read from the stream's Content-Type with a one-byte request. Needs a live check (11.7). |
-| Single-character searches returned nothing on the live server | `search3` use | Open. Not changed: whether Navidrome ignores very short queries is unconfirmed, so no UI text was added. Needs the live check first (11.7). |
+| Single-character searches returned nothing on the live server | `search3` use | Won't fix (decision 2026-10-28). Not needed; no UI text added. |
 | Two servers with the same explicit label are not flagged | `NavidromeEditorAlert` | Done: the editor warns (does not block). |
 | A deleted or re-pointed server's queued tracks were re-matched across all sources | `SourceResolver.resolve`, `SourceRegistry` | Done: retired ids are persisted with their successor. A re-pointed id may be answered only by its replacement; a removed id is answered by nothing. Covered by unit tests. |
 | Removing a server has no confirmation | `NavidromeEditorAlert` | Done. |
@@ -588,7 +588,7 @@ Adding strings: every new key is in `values/strings.xml` and all 18 locales (`Lo
 
 ### 11.4 Upstream
 
-All of this work is on the fork (`abucalip/BitChord`, PRs #1 to #7). **Nothing has been proposed to the upstream project** (`kushagrasinghx/BitChord`). Before opening anything there:
+All of this work is on the fork (`abucalip/BitChord`, PRs #1 to #8). **Nothing has been proposed to the upstream project** (`kushagrasinghx/BitChord`), and the decision of 2026-10-28 is to ignore upstream work for now. If that changes, before opening anything there:
 
 1. `CONTRIBUTING.md` says substantial features should be discussed in an issue first; open one that links this document.
 2. It also says new work should branch from the current active version branch rather than `main`. Only `main` (latest tag `v1.8.1`) exists on the remotes, so ask the maintainers which branch to target.
@@ -608,7 +608,6 @@ The live test and the emulator checks use a real account. Keep credentials in a 
 Not run in this pass; each needs the `NAVIDROME_*` variables (live test) or an emulator/device:
 
 - `NavidromeLiveTest` (skips itself without the variables). Not run: no local env file was available to the agent. Run it with the credentials supplied at run time, never written into the repo.
-- Single-character search behaviour on the live server (11.3).
 - Search-row artwork and the transcoded codec against a live server.
 - The album list kept across a font-scale change, and the landscape clearance above the floating bars.
 - Covers still present after an app restart (disk cache).

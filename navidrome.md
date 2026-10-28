@@ -89,7 +89,7 @@ The editor should accept a base URL, username, password, and optional display la
 
 - Normalize URLs consistently and support reverse-proxy path prefixes; do not assume the server is hosted at `/`.
 - Accept HTTPS by default. Permit HTTP only for explicitly configured trusted local environments when needed; never silently downgrade HTTPS.
-- Android blocks cleartext traffic by default. Decide in Phase 0 how HTTP is allowed (network security config scoped to private/local hosts, or a per-server opt-in with a visible warning) and implement it explicitly; otherwise LAN servers will fail to connect.
+- Android blocks cleartext traffic by default. Decision (Phase 0): enable cleartext app-wide and enforce HTTPS by default in app code, with a per-server HTTP opt-in and visible warning, so LAN servers work.
 - Self-signed certificates: TLS failures surface as a distinct, actionable error. Custom CA or pinning support is a non-goal for the first milestone.
 - Reject malformed URLs and unsupported schemes with actionable, non-secret messages.
 - Never put a password in the base URL.
@@ -139,6 +139,29 @@ Provide useful error categories for invalid URL, network failure, TLS failure, a
 6. Establish baseline tests/build results before making changes.
 
 **Acceptance:** Implementation is based on current contracts; existing source behavior is understood; any playback pipeline change is justified by a failing test or a documented compatibility gap.
+
+### Phase 0 findings and decisions
+
+Audit of `main` at `6e93ebbd`. Read-only; the baseline build and tests have **not** been run yet (needs JDK 17, Android SDK, NDK).
+
+**Decisions**
+
+- **Cleartext HTTP:** allowed for LAN servers. Android's network security config cannot match private IP ranges, so cleartext is enabled app-wide (`usesCleartextTraffic`) and the app enforces the policy: HTTPS by default, HTTP only after an explicit per-server opt-in with a visible warning, never a silent downgrade.
+- **Password storage:** a separate encrypted entry keyed by the source config ID, not a field in `SourceConfig`. Delete it when the source is removed. Do not store it in the plain-text fallback of `EncryptedPrefs`; if only the plain fallback is available, ask the user to re-enter the password rather than persisting it there.
+- **Delivery:** work on a branch and open a PR rather than pushing to `main`.
+
+**Findings**
+
+1. `SourceKind` is referenced only inside `app`; `shared`, `sharedUi`, `tv` and `wearos` do not use it. Adding `NAVIDROME` requires editing the exhaustive `when` in `SourceRegistry.build()` and the icon `when` in `SourcesScreen.kt`. Other uses are `==` checks.
+2. Playback resolves `bitchord://source?s=<configId>&t=<trackId>` at open time via `ResolvingDataSource` and `SourceResolver`. A fresh salt per open fits this path, and persisted URIs never need credentials. To verify: `StreamChoice` caches resolved `SourceStream`s in memory, so a salted URL could go stale on retry, and `AudioCache` must key on the track key rather than the URL.
+3. `SourceConfig` is stored whole in `EncryptedPrefs` (`bitchord_sources`). The encrypted file and its plain fallback are excluded from auto-backup (`backup_rules.xml`, `data_extraction_rules.xml`), and `AppSettings.exportPrefs()` reads a different file. `EncryptedPrefs` falls back to a plain file if the Keystore is unusable, which is why passwords get their own entry (see decisions).
+4. The manifest has `usesCleartextTraffic="false"` and there is no network security config.
+5. `SourceHealth.Rejected` versus `Unreachable` already matches the auth-failure versus connectivity-failure split.
+6. `StreamRequest.Capped` maps to `maxBitRate` and `Lossless` to `format=raw`. `canServeLossless` can be true for Navidrome.
+7. User-added kinds share `rank = 0`. Open: whether `SourceRegistry.reorderAddons` and `identify()` assume `ADDON`. Also decide `worthPrefetching` for Navidrome (a LAN server is likely fast; remote may not be).
+8. `MainViewModel.kt` filters to `AddonSource` when gathering results. Open: whether user-facing search shows non-addon sources, which decides whether Phase 1 needs search UI work.
+9. Tests are JVM unit tests under `app/src/test`; `AddonSourceTest.kt` is the closest template. Command: `./gradlew testDevDebugUnitTest`.
+10. `CONTRIBUTING.md` says to branch from the active version branch. Only `origin/main` exists (latest tag `v1.8.1`), so this work branches from `main`; confirm with maintainers if a version branch is expected.
 
 ### Phase 1 — Native connection, search, and playback
 

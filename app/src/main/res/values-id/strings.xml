@@ -1348,4 +1348,13 @@
     <string name="song_info_unavailable">Tidak tersedia</string>
     <string name="song_info_error">Sebagian informasi tidak dapat dimuat.</string>
     <string name="song_info_retry">Coba lagi</string>
+    <string name="add_navidrome">Tambahkan server Navidrome</string>
+    <string name="add_navidrome_detail">Cari dan putar pustaka Navidrome Anda sendiri</string>
+    <string name="navidrome_description">Masukkan alamat server Anda dan akun yang digunakan. Kata sandi disimpan terenkripsi di perangkat ini dan tidak pernah dikirim sebagai teks biasa.</string>
+    <string name="navidrome_http_warning">Alamat ini tidak terenkripsi. Token login dan musik Anda dapat dilihat oleh siapa pun di jaringan. Gunakan http:// hanya di jaringan tepercaya.</string>
+    <string name="navidrome_password_unchanged">Kata sandi (kosongkan untuk tetap menggunakan yang lama)</string>
+    <string name="navidrome_name_optional">Nama (opsional)</string>
+    <string name="navidrome_invalid_url">Itu bukan alamat http atau https yang valid</string>
+    <string name="navidrome_password_required">Masukkan kata sandi akun</string>
+    <string name="navidrome_secure_storage_unavailable">Penyimpanan aman tidak tersedia di perangkat ini, sehingga kata sandi tidak disimpan</string>
 </resources>

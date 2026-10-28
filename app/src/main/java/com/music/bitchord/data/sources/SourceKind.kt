@@ -82,6 +82,28 @@ enum class SourceKind(
     ),
 
     /**
+     * A Navidrome server the user runs, spoken to through its
+     * Subsonic-compatible API.
+     *
+     * A source the user added on purpose, so it shares [ADDON]'s rank and is
+     * ordered among them by drag. Unlike an addon it needs credentials, which
+     * live in `NavidromeCredentials` and never in [SourceConfig].
+     *
+     * Not [worthPrefetching]: whether a server answers quickly depends on
+     * whether it is on the LAN or across the internet, which a kind cannot know.
+     */
+    NAVIDROME(
+        label = "Navidrome",
+        detail = "Your own Navidrome server. Searched and streamed over its Subsonic-compatible API.",
+        labels = listOf("Self-hosted", "Lossless"),
+        needsServer = true,
+        canServeLossless = true,
+        // Literal, not [USER_ADDED]: an enum entry is constructed before
+        // its own companion exists.
+        rank = 0,
+    ),
+
+    /**
      * A module index the user pointed at themselves.
      *
      * Legacy, and no longer offered: the sources screen has no way to add one

@@ -1288,4 +1288,13 @@
     <string name="song_info_unavailable">Không có thông tin</string>
     <string name="song_info_error">Không thể tải một số thông tin.</string>
     <string name="song_info_retry">Thử lại</string>
+    <string name="add_navidrome">Thêm máy chủ Navidrome</string>
+    <string name="add_navidrome_detail">Tìm kiếm và phát thư viện Navidrome của riêng bạn</string>
+    <string name="navidrome_description">Nhập địa chỉ máy chủ và tài khoản sẽ dùng. Mật khẩu được lưu mã hóa trên thiết bị này và không bao giờ được gửi dưới dạng văn bản thuần.</string>
+    <string name="navidrome_http_warning">Địa chỉ này không được mã hóa. Mã đăng nhập và nhạc của bạn có thể bị bất kỳ ai trong mạng nhìn thấy. Chỉ dùng http:// trên mạng bạn tin cậy.</string>
+    <string name="navidrome_password_unchanged">Mật khẩu (để trống để giữ nguyên)</string>
+    <string name="navidrome_name_optional">Tên (tùy chọn)</string>
+    <string name="navidrome_invalid_url">Đây không phải là địa chỉ http hoặc https hợp lệ</string>
+    <string name="navidrome_password_required">Nhập mật khẩu của tài khoản</string>
+    <string name="navidrome_secure_storage_unavailable">Bộ nhớ an toàn không khả dụng trên thiết bị này nên mật khẩu chưa được lưu</string>
 </resources>

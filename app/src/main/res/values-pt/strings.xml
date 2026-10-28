@@ -1376,4 +1376,13 @@
     <string name="song_info_unavailable">Não disponível</string>
     <string name="song_info_error">Não foi possível carregar algumas informações.</string>
     <string name="song_info_retry">Tentar novamente</string>
+    <string name="add_navidrome">Adicionar um servidor Navidrome</string>
+    <string name="add_navidrome_detail">Pesquise e reproduza a sua própria biblioteca Navidrome</string>
+    <string name="navidrome_description">Introduza o endereço do seu servidor e a conta a utilizar. A palavra-passe é guardada cifrada neste dispositivo e nunca é enviada em texto simples.</string>
+    <string name="navidrome_http_warning">Este endereço não é cifrado. O seu token de início de sessão e a sua música podem ser vistos por qualquer pessoa na rede. Use http:// apenas numa rede de confiança.</string>
+    <string name="navidrome_password_unchanged">Palavra-passe (deixe em branco para manter)</string>
+    <string name="navidrome_name_optional">Nome (opcional)</string>
+    <string name="navidrome_invalid_url">Este não é um endereço http ou https válido</string>
+    <string name="navidrome_password_required">Introduza a palavra-passe da conta</string>
+    <string name="navidrome_secure_storage_unavailable">O armazenamento seguro não está disponível neste dispositivo, por isso a palavra-passe não foi guardada</string>
 </resources>

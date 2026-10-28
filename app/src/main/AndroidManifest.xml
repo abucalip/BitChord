@@ -55,11 +55,14 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
+    <!-- Cleartext is allowed so a Navidrome server on the LAN can be reached over http://.
+         Navidrome treats http as an explicit per-server choice (the user must type it and
+         is warned); every other source in the app uses https. -->
     <application
         android:name=".BitChordApplication"
         android:allowBackup="true"
         android:appCategory="audio"
-        android:usesCleartextTraffic="false"
+        android:usesCleartextTraffic="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"

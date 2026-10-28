@@ -174,6 +174,7 @@ import com.music.bitchord.ui.screens.ListenTogetherScreen
 import com.music.bitchord.ui.screens.PartyServerEditor
 import com.music.bitchord.ui.screens.SignatureApiEditor
 import com.music.bitchord.ui.screens.SettingsScreen
+import com.music.bitchord.ui.screens.NavidromeEditorAlert
 import com.music.bitchord.ui.screens.SourceEditorAlert
 import com.music.bitchord.ui.screens.SourcesScreen
 import com.music.bitchord.data.sources.TrackMatcher
@@ -5265,17 +5266,29 @@ private fun BitChordApp(
         }
 
         editingSource?.let { config ->
-            SourceEditorAlert(
-                hazeState = hazeState,
-                config = config,
-                onDismiss = { editingSource = null },
-                onSaved = { editingSource = null },
-                onDelete = {
-                    SourceRegistry.remove(config.id)
-                    editingSource = null
-                },
-                scope = scope,
-            )
+            val onDelete = {
+                SourceRegistry.remove(config.id)
+                editingSource = null
+            }
+            if (config.kind == SourceKind.NAVIDROME) {
+                NavidromeEditorAlert(
+                    hazeState = hazeState,
+                    config = config,
+                    onDismiss = { editingSource = null },
+                    onSaved = { editingSource = null },
+                    onDelete = onDelete,
+                    scope = scope,
+                )
+            } else {
+                SourceEditorAlert(
+                    hazeState = hazeState,
+                    config = config,
+                    onDismiss = { editingSource = null },
+                    onSaved = { editingSource = null },
+                    onDelete = onDelete,
+                    scope = scope,
+                )
+            }
         }
 
         if (confirmJioSaavn) {

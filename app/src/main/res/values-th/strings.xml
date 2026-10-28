@@ -1354,4 +1354,13 @@
     <string name="song_info_unavailable">ไม่มีข้อมูล</string>
     <string name="song_info_error">ไม่สามารถโหลดข้อมูลบางส่วนได้</string>
     <string name="song_info_retry">ลองอีกครั้ง</string>
+    <string name="add_navidrome">เพิ่มเซิร์ฟเวอร์ Navidrome</string>
+    <string name="add_navidrome_detail">ค้นหาและสตรีมคลังเพลง Navidrome ของคุณเอง</string>
+    <string name="navidrome_description">ป้อนที่อยู่เซิร์ฟเวอร์และบัญชีที่จะใช้ รหัสผ่านจะถูกเก็บแบบเข้ารหัสบนอุปกรณ์นี้ และจะไม่ถูกส่งเป็นข้อความธรรมดา</string>
+    <string name="navidrome_http_warning">ที่อยู่นี้ไม่ได้เข้ารหัส ทุกคนในเครือข่ายสามารถเห็นโทเค็นการเข้าสู่ระบบและเพลงของคุณได้ ใช้ http:// เฉพาะในเครือข่ายที่คุณไว้ใจ</string>
+    <string name="navidrome_password_unchanged">รหัสผ่าน (เว้นว่างไว้เพื่อใช้ค่าเดิม)</string>
+    <string name="navidrome_name_optional">ชื่อ (ไม่บังคับ)</string>
+    <string name="navidrome_invalid_url">ที่อยู่ http หรือ https นี้ไม่ถูกต้อง</string>
+    <string name="navidrome_password_required">ป้อนรหัสผ่านของบัญชี</string>
+    <string name="navidrome_secure_storage_unavailable">อุปกรณ์นี้ไม่มีที่เก็บข้อมูลที่ปลอดภัย จึงไม่ได้บันทึกรหัสผ่าน</string>
 </resources>

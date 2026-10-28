@@ -12,6 +12,8 @@ import com.music.bitchord.data.sources.addon.AddonClient
 import com.music.bitchord.data.sources.addon.AddonException
 import com.music.bitchord.data.sources.addon.DetectedFormat
 import com.music.bitchord.data.sources.addon.SourceFormats
+import com.music.bitchord.data.sources.navidrome.NavidromeClient
+import com.music.bitchord.data.sources.navidrome.NavidromeCredentials
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.playback.audio.LosslessOutput
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -107,6 +109,7 @@ object SourceRegistry {
     fun init(context: Context) {
         // Same repair and degradation as AuthStore; see EncryptedPrefs.
         prefs = EncryptedPrefs.open(context, "bitchord_sources", "bitchord_sources_plain")
+        NavidromeCredentials.init(context)
 
         val stored = prefs.getString(KEY_SOURCES, null)?.let(::decodeStored) ?: emptyList()
         val jioOptInMigrationDone = prefs.getBoolean(KEY_JIOSAAVN_OPT_IN_V1, false)
@@ -284,11 +287,19 @@ object SourceRegistry {
      * and not just the one with a text field.
      */
     private fun SourceConfig.tidied(): SourceConfig =
-        if (kind == SourceKind.ADDON) copy(baseUrl = AddonClient.normalizeBase(baseUrl)) else this
+        when (kind) {
+            SourceKind.ADDON -> copy(baseUrl = AddonClient.normalizeBase(baseUrl))
+            SourceKind.NAVIDROME -> copy(
+                baseUrl = NavidromeClient.normalizeBase(baseUrl)?.toString()?.trimEnd('/') ?: baseUrl.trim(),
+            )
+            else -> this
+        }
 
     fun remove(configId: String) {
         val target = config(configId) ?: return
         if (target.kind in BUILT_IN_KINDS) return
+        // The login goes with the source: a deleted server must not leave a password behind.
+        if (target.kind == SourceKind.NAVIDROME) NavidromeCredentials.delete(configId)
         publish(configs.value.filterNot { it.id == configId })
     }
 
@@ -453,6 +464,7 @@ object SourceRegistry {
 
     private fun build(config: SourceConfig): MusicSource = when (config.kind) {
         SourceKind.ADDON -> AddonSource(config)
+        SourceKind.NAVIDROME -> NavidromeSource(config)
         // Same protocol, same implementation — the kinds differ only in rank.
         SourceKind.CUSTOM_MODULE -> ModuleSource(config)
         SourceKind.MODULE -> ModuleSource(config)

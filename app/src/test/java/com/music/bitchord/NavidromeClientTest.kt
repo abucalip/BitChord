@@ -1,0 +1,253 @@
+package com.music.bitchord
+
+import com.music.bitchord.data.sources.navidrome.NavidromeClient
+import com.music.bitchord.data.sources.navidrome.NavidromeException
+import kotlinx.coroutines.test.runTest
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+
+/**
+ * The Subsonic-compatible API as Navidrome speaks it, against a real HTTP
+ * server whose answers are set per test.
+ */
+class NavidromeClientTest {
+
+    private lateinit var server: MockWebServer
+
+    @Before
+    fun setUp() {
+        server = MockWebServer().also { it.start() }
+    }
+
+    @After
+    fun tearDown() {
+        server.shutdown()
+    }
+
+    private fun client(
+        path: String = "",
+        salts: () -> String = NavidromeClient::randomSalt,
+    ) = NavidromeClient(
+        rawBaseUrl = server.url(path).toString(),
+        username = "alice",
+        password = "s3cret pass",
+        salts = salts,
+    )
+
+    private fun ok(body: String) = MockResponse().setResponseCode(200).setBody(
+        """{"subsonic-response":{"status":"ok","version":"1.16.1","type":"navidrome","serverVersion":"0.53.0",$body}}""",
+    )
+
+    private fun failed(code: Int) = MockResponse().setResponseCode(200).setBody(
+        """{"subsonic-response":{"status":"failed","version":"1.16.1","error":{"code":$code,"message":"nope"}}}""",
+    )
+
+    // ── Authentication ────────────────────────────────────────────────────
+
+    @Test
+    fun `token is the md5 of password and salt`() {
+        // Worked example from the Subsonic API documentation.
+        assertEquals("26719a1196d2a940705a59634eb18eab", NavidromeClient.token("sesame", "c19b2d"))
+    }
+
+    @Test
+    fun `requests carry a token and salt and never the password`() = runTest {
+        server.enqueue(ok("\"x\":1"))
+        client(salts = { "abc123" }).ping().getOrThrow()
+
+        val request = server.takeRequest()
+        val url = request.requestUrl!!
+        assertEquals("/rest/ping", url.encodedPath)
+        assertEquals("alice", url.queryParameter("u"))
+        assertEquals("abc123", url.queryParameter("s"))
+        assertEquals(NavidromeClient.token("s3cret pass", "abc123"), url.queryParameter("t"))
+        assertEquals("json", url.queryParameter("f"))
+        assertNull(url.queryParameter("p"))
+        assertFalse(request.path.orEmpty().contains("s3cret"))
+    }
+
+    @Test
+    fun `every request uses a fresh salt`() = runTest {
+        server.enqueue(ok("\"x\":1"))
+        server.enqueue(ok("\"x\":1"))
+        val client = client()
+        client.ping().getOrThrow()
+        client.ping().getOrThrow()
+        val first = server.takeRequest().requestUrl!!.queryParameter("s")
+        val second = server.takeRequest().requestUrl!!.queryParameter("s")
+        assertNotNull(first)
+        assertNotEquals(first, second)
+        assertEquals(32, first!!.length)
+    }
+
+    // ── Ping ──────────────────────────────────────────────────────────────
+
+    @Test
+    fun `ping reports the server`() = runTest {
+        server.enqueue(ok("\"openSubsonic\":true"))
+        val ping = client().ping().getOrThrow()
+        assertEquals("1.16.1", ping.apiVersion)
+        assertEquals("navidrome", ping.serverType)
+        assertEquals("0.53.0", ping.serverVersion)
+    }
+
+    @Test
+    fun `wrong credentials are an auth failure not a network failure`() = runTest {
+        server.enqueue(failed(40))
+        val failure = client().ping().exceptionOrNull()
+        assertTrue(failure is NavidromeException.Auth)
+        assertFalse(failure!!.message.orEmpty().contains("s3cret"))
+    }
+
+    @Test
+    fun `a refused connection is a network failure`() = runTest {
+        val dead = client()
+        server.shutdown()
+        assertTrue(dead.ping().exceptionOrNull() is NavidromeException.Network)
+    }
+
+    @Test
+    fun `an html page is reported as not a subsonic server`() = runTest {
+        server.enqueue(MockResponse().setBody("<html>login</html>"))
+        assertTrue(client().ping().exceptionOrNull() is NavidromeException.Unsupported)
+    }
+
+    @Test
+    fun `server errors and rate limits are distinguished`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(503))
+        server.enqueue(MockResponse().setResponseCode(429))
+        server.enqueue(MockResponse().setResponseCode(404))
+        val client = client()
+        assertTrue(client.ping().exceptionOrNull() is NavidromeException.ServerError)
+        assertTrue(client.ping().exceptionOrNull() is NavidromeException.RateLimited)
+        assertTrue(client.ping().exceptionOrNull() is NavidromeException.Unsupported)
+    }
+
+    @Test
+    fun `an empty body is malformed`() = runTest {
+        server.enqueue(MockResponse().setBody(""))
+        assertTrue(client().ping().exceptionOrNull() is NavidromeException.Malformed)
+    }
+
+    // ── Search ────────────────────────────────────────────────────────────
+
+    @Test
+    fun `search parses songs and tolerates missing fields`() = runTest {
+        server.enqueue(
+            ok(
+                """"searchResult3":{"song":[
+                  {"id":"1","title":"Café del Mar","artist":"Énergie","album":"Été","duration":215,"track":3,"coverArt":"al-9","suffix":"flac","bitRate":900},
+                  {"id":"2","title":"Bare"},
+                  {"id":"","title":"No id"}
+                ]}""",
+            ),
+        )
+        val songs = client().searchSongs("cafe", count = 10, offset = 20).getOrThrow()
+
+        assertEquals(listOf("1", "2"), songs.map { it.id })
+        assertEquals("Café del Mar", songs[0].title)
+        assertEquals(215, songs[0].duration)
+        assertEquals("flac", songs[0].suffix)
+        assertEquals("", songs[1].artist)
+        assertNull(songs[1].duration)
+
+        val url = server.takeRequest().requestUrl!!
+        assertEquals("/rest/search3", url.encodedPath)
+        assertEquals("cafe", url.queryParameter("query"))
+        assertEquals("10", url.queryParameter("songCount"))
+        assertEquals("20", url.queryParameter("songOffset"))
+        assertEquals("0", url.queryParameter("artistCount"))
+    }
+
+    @Test
+    fun `an empty result is an empty list`() = runTest {
+        server.enqueue(ok("\"searchResult3\":{}"))
+        assertTrue(client().searchSongs("nothing").getOrThrow().isEmpty())
+    }
+
+    @Test
+    fun `ids stay opaque strings`() = runTest {
+        server.enqueue(ok("\"searchResult3\":{\"song\":[{\"id\":\"0007\",\"title\":\"t\"}]}"))
+        assertEquals("0007", client().searchSongs("t").getOrThrow().single().id)
+    }
+
+    // ── URLs ──────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a reverse proxy path prefix is kept`() = runTest {
+        server.enqueue(ok("\"x\":1"))
+        client(path = "/music/").ping().getOrThrow()
+        assertEquals("/music/rest/ping", server.takeRequest().requestUrl!!.encodedPath)
+    }
+
+    @Test
+    fun `normalizeBase handles the forms people paste`() {
+        assertEquals("https://nav.example.com/", NavidromeClient.normalizeBase("https://nav.example.com")!!.toString())
+        assertEquals("https://nav.example.com/", NavidromeClient.normalizeBase("  https://nav.example.com//  ")!!.toString())
+        assertEquals("https://nav.example.com/music", NavidromeClient.normalizeBase("https://nav.example.com/music/rest")!!.toString())
+        assertEquals("http://192.168.1.5:4533/", NavidromeClient.normalizeBase("http://192.168.1.5:4533/?x=1#y")!!.toString())
+    }
+
+    @Test
+    fun `normalizeBase rejects bad schemes malformed urls and embedded credentials`() {
+        assertNull(NavidromeClient.normalizeBase("ftp://nav.example.com"))
+        assertNull(NavidromeClient.normalizeBase("not a url"))
+        assertNull(NavidromeClient.normalizeBase(""))
+        assertNull(NavidromeClient.normalizeBase("https://alice:pw@nav.example.com"))
+    }
+
+    @Test
+    fun `an invalid base url fails before any request`() = runTest {
+        val bad = NavidromeClient("nonsense", "alice", "pw")
+        assertTrue(bad.ping().exceptionOrNull() is NavidromeException.InvalidUrl)
+        assertTrue(bad.streamUrl("1").exceptionOrNull() is NavidromeException.InvalidUrl)
+    }
+
+    @Test
+    fun `redact keeps only scheme and host`() {
+        assertEquals(
+            "https://nav.example.com/***",
+            NavidromeClient.redact("https://nav.example.com/rest/stream?u=alice&t=abc&s=def"),
+        )
+        assertEquals("***", NavidromeClient.redact("garbage"))
+    }
+
+    // ── Streams ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `stream url asks for the original by default and carries fresh auth`() {
+        val client = client()
+        val first = client.streamUrl("42").getOrThrow()
+        val second = client.streamUrl("42").getOrThrow()
+        val url = okhttp3.HttpUrl.Companion.run { first.toHttpUrl() }
+
+        assertEquals("/rest/stream", url.encodedPath)
+        assertEquals("42", url.queryParameter("id"))
+        assertEquals("raw", url.queryParameter("format"))
+        assertNull(url.queryParameter("maxBitRate"))
+        assertFalse(first.contains("s3cret"))
+        assertNotEquals(first, second)
+    }
+
+    @Test
+    fun `stream url honours a bitrate cap`() {
+        val url = okhttp3.HttpUrl.Companion.run { client().streamUrl("42", maxKbps = 128).getOrThrow().toHttpUrl() }
+        assertEquals("128", url.queryParameter("maxBitRate"))
+        assertNull(url.queryParameter("format"))
+    }
+
+    @Test
+    fun `track ids with special characters survive`() {
+        val url = okhttp3.HttpUrl.Companion.run { client().streamUrl("a&b=c d/é").getOrThrow().toHttpUrl() }
+        assertEquals("a&b=c d/é", url.queryParameter("id"))
+    }
+}

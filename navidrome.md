@@ -2,7 +2,7 @@
 
 ## Status and delivery strategy
 
-- **Status:** Phase 0 and Phase 1 are merged (PRs #1, #2). Phases 2 and 3 are merged (PRs #3, #4, #5). A pre-playback missing-track check and an opt-in live test followed (PR #6). **What remains is in section 11: emulator verification first, then polish, then the upstream decision.**
+- **Status:** Phase 0 and Phase 1 are merged (PRs #1, #2). Phases 2 and 3 are merged (PRs #3, #4, #5). A pre-playback missing-track check and an opt-in live test followed (PR #6). **Emulator verification (11.1) has since been run, found one real bug (below Lossless, no Navidrome track would play) and fixed it (PR #7); results are under "Live verification". What remains is in section 11: polish, then the upstream decision.**
 - **Goal:** Add native Navidrome support to BitChord without replacing its existing playback engine.
 - **Delivery:** Small, reviewable pull requests, starting with authenticated search and playback.
 - **Principle:** Navidrome is a first-class source, not a custom addon. Preserve existing source behavior and avoid unrelated refactors.
@@ -24,7 +24,7 @@
 - Shipping playlists, favorites, ratings, scrobbling, offline playback, or transcoding controls in the first PR.
 - Claiming lossless or bit-perfect playback solely from a source capability flag.
 - Requiring server-side modifications.
-- Supporting the TV, Wear OS, or web clients. Scope is the phone app (`app`) only. Other modules must still compile if they consume shared code touched by this work (see Phase 0), but they get no Navidrome UI or behavior.
+- Supporting the TV, Wear OS, or web clients. Scope is the phone app (`app`) only. The other modules (`tv`, `wearos`, `web`) get no Navidrome UI or behavior and are not built or tested for this work.
 - Custom CA trust, self-signed certificate handling, or certificate pinning in the first milestone (revisit in Phase 3).
 - Routing Navidrome traffic through the `backend` module; the phone app talks to the server directly, which is required for LAN servers.
 
@@ -41,7 +41,7 @@ The targeted audit identified these areas; re-check them on the current target b
 - `app/src/main/java/com/music/bitchord/ui/screens/SourcesScreen.kt` — source-management UI; add a dedicated Navidrome editor rather than reusing the addon editor.
 - `shared/src/commonMain/kotlin/com/music/bitchord/data/model/Models.kt` — shared song model; map metadata into existing fields first.
 
-Scope is the phone app only. `shared` is touched only as needed for `SourceKind`/models and must keep the other modules compiling.
+Scope is the phone app only. `shared` is touched only as needed for `SourceKind`/models. Keeping the other modules compiling is out of scope (see section 10).
 
 The project already uses Ktor, kotlinx.serialization, Media3/ExoPlayer, and an OkHttp-backed playback data source. Reuse existing dependencies and conventions unless testing demonstrates a gap.
 
@@ -288,7 +288,44 @@ Verified against the real server:
 - A missing track is a clean miss in a few milliseconds; a track the session has not seen streams with its real codec and duration (the check fills these in for a queue restored after a restart).
 - Two registrations of one server keep distinct track keys for identical server ids.
 
-**Not verified** (needs a device or emulator): the Compose screens (editor, Sources, browse, album), real playback in the player, cover loading through Coil, scroll paging, and, importantly, that the app's cleartext setting lets an `http://` LAN server connect on Android; JVM tests do not enforce that policy. Single-character searches such as `é` or `&` returned nothing; this is unexplained and may simply be no matches.
+**Not covered by the live test** (it needs an emulator or device, and was checked in the emulator run below): the Compose screens, real playback in the player, cover loading through Coil, scroll paging, and that the app's cleartext setting lets an `http://` LAN server connect on Android; JVM tests do not enforce that policy. Single-character searches such as `é` or `&` returned nothing; this is unexplained and may simply be no matches.
+
+#### Emulator run (2026-10-28)
+
+Section 11.1, run on an Android 16 emulator (API 36, `google_apis`, `arm64-v8a`, `android-36-ext19`) on an Apple Silicon Mac. The dev flavour (`com.dev.bitchord`) was built from `eb668507` and pointed at the same Navidrome 0.64.2 server (Subsonic API 1.16.1) over plain `http://` on the LAN. The account was the one in the local env file, not checked to be read-only. A full session log was captured (about 66,000 lines). No address, username or password appears in this document.
+
+Of the 22 steps, 20 passed (some with gaps, noted), 1 failed (step 20) and 1 did not apply (step 3).
+
+| Step | Result | What was seen |
+|---|---|---|
+| 1 Cleartext connect | PASS | Test over `http://` returned "Connected · Navidrome v0.64.2 API 1.16.1". The manifest setting does take effect. |
+| 2 Not-encrypted warning | PASS | Shown for `http://`; gone for `https://`. |
+| 3 Cleartext failure in the log | n/a | Step 1 succeeded, so there was no failure to look for. |
+| 4 Credential storage | PASS | `bitchord_navidrome.xml` present; no `bitchord_navidrome_plain.xml`. |
+| 5 Password not readable | PASS | A literal search of `shared_prefs`, `files` and `databases` found nothing. |
+| 6 Remove | PASS | The credential entries were gone and the other 2 of the file's 4 entries (the encryption key set) remained. Removal has no confirmation prompt. |
+| 7 Editor errors | PASS | Wrong password: "Wrong username or password". Unresolvable host: "Could not reach the server". `https://` to the HTTP server: "A secure connection could not be established (check the certificate)". None echoed the password. |
+| 8 Label and password edits | PASS | A label-only edit with a blank password kept the server authenticating. Saving a wrong password made the Sources row re-check on its own and show "Wrong username or password"; restoring the password recovered it. |
+| 9 Address edit | PASS | The server kept its position, label and on/off state. Tracks queued from the old address were not resolved against the new one; the one that played was re-matched and came from YouTube Music (the gap in 11.3). |
+| 10 Health line | PASS | Version when reachable; "Wrong username or password" and "Can't reach it right now" otherwise. |
+| 11 Server libraries | PASS | The row appears while the server is enabled, disappears when it is switched off and returns when switched on. |
+| 12 Browse paging | PASS, partly | Artists and Albums load; scrolling past the first 50 loads more (196+ artists seen to the end of the list) with no freeze. Duplicates and gaps were not checked rigorously. |
+| 13 Artist and album pages | PASS | Cover, title, Play, Shuffle and tracks in order. Back goes up one level at a time. |
+| 14 Stress | PASS, with notes | Rotation, a 1.5 font scale and light mode: no crash, no clipped text (long titles ellipsise). The Albums list returned to the top after the font-scale change, and in landscape the floating mini-player and tab bar cover rows. A small-screen device was not tried. |
+| 15 Server drop mid-browse | PASS | Opened offline: "Could not reach the server" with Try Again, which recovered once the network returned. Cut mid-list: the loaded rows stayed and the message appeared at the end of the list; retry continued it. |
+| 16 Playback | PASS, partly | Audio plays; the media notification is present; Next, Previous and Pause work. Seeking and the lock screen were not checked. |
+| 17 Play from search | PASS | A result from the Addons search played; the player selected the server's own track id. |
+| 18 Resume after a kill | PASS | The queue came back after the app was force-stopped and played again. |
+| 19 Server gone | PASS | With the network off the track failed three times, then was skipped; there were no YouTube substitution lines in the log. |
+| 20 Quality below Lossless | FAIL, then fixed | See below. |
+| 21 Covers | PASS, partly | Covers load and missing ones show the placeholder. Reloading after a restart was not checked. |
+| 22 Secrets in logs | PASS | No `getCoverArt`, `/rest/stream`, token or salt matches. The 117 "password" matches all came from the system keyboard (`KeyboardWrapper`, `AndroidIME`, `KeyboardManager`) and `WifiScoreCard`, none from BitChord. The real password appears 0 times in the log. |
+
+**Bug found and fixed: no Navidrome track played below Lossless (step 20).** With Wi-Fi quality on High, Medium or Low, every Navidrome track failed with "No enabled source could serve …", and after four in a row the queue stopped. Lossless worked and the server was reachable throughout. `AudioQuality.permits` let a source answer below Lossless only if it could not serve lossless (High) or was YouTube (Medium, Low). Navidrome is declared `canServeLossless`, so it was filtered out of `SourceRegistry.activeForPlayback`, and because a Navidrome track is never answered by another source, nothing played. The capped branch in `NavidromeSource.stream` (`maxBitRate`) was unreachable, which the unit tests could not show because they never set a ceiling. The fix permits Navidrome on every rung, as YouTube is; addon kinds are unchanged. New tests: a table test for `permits` and a resolver test that runs a Navidrome track under High, Medium and Low (a 64 kbps `maxBitRate` on Low, the raw file otherwise). Without the fix, three of the five new tests fail. After the fix the `app` module's unit tests ran 1,209 with 16 skipped (the live tests) and 0 failed. The fix was not re-run on the emulator, so a transcoded stream on Low has been checked by the resolver test and not by ear.
+
+**Still not verified:** seeking and the lock screen; an `https://` server with a real certificate; a small-screen device; whether covers reload after a restart; duplicate and gap checking of the paged lists; TalkBack; a physical device (Keystore behaviour in particular).
+
+**Setup correction.** `avdmanager` could not read the device definitions here and fell back to weak defaults (`hw.gpu.enabled=no`, 2 GB of RAM), so the first boot rendered everything on the CPU and Android raised "isn't responding" dialogs on the system UI and on BitChord, and dropped typed characters. Setting `hw.gpu.enabled=yes`, `hw.gpu.mode=host` and `hw.ramSize=4096` and cold-booting fixed it. The system image is about 1.9 GB. Section 11.1 now says so.
 
 ### Phase 4 — Optional future features
 
@@ -390,15 +427,15 @@ During implementation, confirm endpoint names, authentication requirements, resp
 
 Ticked only where there is evidence; the notes say what is missing.
 
-- [x] User can configure and validate a Navidrome server. *(Client and source verified live; the editor itself has not been exercised on a device.)*
-- [x] Credentials are stored securely and excluded from logs, exports, and persistent track identities. *(Separate encrypted store, excluded from backups, never written to the plain fallback; no logging of resolved URLs found. Keystore behaviour not checked on a device.)*
+- [x] User can configure and validate a Navidrome server. *(Client and source verified live; the editor exercised on an emulator, including wrong-password, wrong-host and https-to-http errors. Not run on a physical device.)*
+- [x] Credentials are stored securely and excluded from logs, exports, and persistent track identities. *(Separate encrypted store, excluded from backups, never written to the plain fallback; no logging of resolved URLs found. On an emulator the password was in the encrypted store only, and absent from app storage and from the full session log. Keystore behaviour on a physical device not checked.)*
 - [x] Search results map correctly into existing BitChord song models. *(Also verified live.)*
-- [ ] A selected result plays through the existing playback engine. *(Streams verified to return real audio over the same URLs the player is given; the player itself has not been run.)*
+- [x] A selected result plays through the existing playback engine. *(On an emulator: from an album and from a search result, with Next, Previous and Pause, and resumed after the app was killed. Below Lossless this only works with the quality-ceiling fix in the same PR as the emulator results. Seeking and the lock screen were not checked.)*
 - [x] Multiple servers remain isolated when track IDs overlap. *(Tested through the resolver and live.)*
 - [x] Errors are useful, safe, and recoverable.
 - [x] Automated tests cover authentication, parsing, mapping, source identity, and stream resolution.
-- [x] Existing sources and playback behavior pass regression tests. *(1,220 tests, 0 failures.)*
-- [ ] Other modules still compile after shared changes (no new features there). *(No references to `SourceKind` outside `app`, and `tv` built with the test run; `wearos` and `web` were not built.)*
+- [x] Existing sources and playback behavior pass regression tests. *(1,220 tests, 0 failures; after the quality-ceiling fix the `app` module runs 1,209 with 16 skipped live tests and 0 failures.)*
+- Waived: other modules still compile after shared changes. *(Only the phone app (`app`) is in scope, so `tv`, `wearos` and `web` are not built or tested for this work. For reference, no code outside `app` references `SourceKind`, and `tv` happened to build with the test run.)*
 - [ ] Required CI/build checks pass on the exact PR head SHA. *(The repository reports no CI checks on these branches; tests were run locally.)*
 - [x] Any waived or unperformed manual testing is reported honestly.
 - [x] PR description records scope, tests, limitations, and follow-up work.
@@ -407,17 +444,17 @@ Ticked only where there is evidence; the notes say what is missing.
 
 ## 11. Remaining work
 
-Everything through Phase 3 is implemented and merged, with 1,220 automated tests passing and the client and source verified against a real server (see "Live verification"). **No part of the app has been run on a device.** Do the tasks below in order; each says how to know it is done.
+Everything through Phase 3 is implemented and merged, with 1,220 automated tests passing and the client and source verified against a real server (see "Live verification"). **The app has been run on an emulator (11.1, results under "Live verification") but not on a physical device.** Do the tasks below in order; each says how to know it is done.
 
-### 11.1 Verify on an Android emulator (do this first)
+### 11.1 Verify on an Android emulator (done 2026-10-28)
 
-Nothing below has been run yet. It is the biggest remaining risk because the unit tests cannot cover the UI, the Keystore, the player or Android's network policy.
+Run once; the results, one bug found and fixed, and what is still unverified are under "Live verification". The runbook is kept so it can be repeated after changes. It matters because the unit tests cannot cover the UI, the Keystore, the player or Android's network policy: the bug it found (below Lossless, no Navidrome track played) was invisible to them.
 
 **What this verifies that tests cannot:** that `http://` to a LAN server connects on Android (the manifest sets `usesCleartextTraffic="true"`; JVM tests do not enforce that policy), that the password is really stored encrypted, that the screens work, and that the audio actually plays.
 
 #### Setup
 
-These commands were checked against the SDK listing on the development Mac (Apple Silicon, `arm64`, JDK 17 and the SDK already installed under `/opt/homebrew`). The emulator itself had not been installed when this was written, so treat the `avdmanager`/`emulator` lines as untested and adjust if they differ. It needs a few GB of disk.
+These commands were run on the development Mac (Apple Silicon, `arm64`, JDK 17 and the SDK installed under `/opt/homebrew`) and worked, with one addition: step 2b below. The system image alone is about 1.9 GB, so allow a few GB of disk and a good connection; on a slow one the download stalled and had to be restarted.
 
 ```bash
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17
@@ -431,8 +468,14 @@ sdkmanager "emulator" "system-images;android-36-ext19;google_apis;arm64-v8a"
 avdmanager create avd -n bitchord-36 -d pixel_7 \
   -k "system-images;android-36-ext19;google_apis;arm64-v8a"
 
+# 2b. avdmanager may fail to read the device definitions ("Could not load devices ... devices.xml") and
+#     fall back to weak defaults: GPU off and 2 GB of RAM. That leaves the whole UI rendering on the CPU,
+#     and Android shows "isn't responding" dialogs and drops typed characters. Fix it before the first boot.
+sed -i '' -e 's/^hw.gpu.enabled=.*/hw.gpu.enabled=yes/' -e 's/^hw.gpu.mode=.*/hw.gpu.mode=host/' \
+  -e 's/^hw.ramSize=.*/hw.ramSize=4096/' ~/.android/avd/bitchord-36.avd/config.ini
+
 # 3. Start it (leave this running; a second terminal for the rest)
-emulator -avd bitchord-36 -no-snapshot -netdelay none -netspeed full
+emulator -avd bitchord-36 -no-snapshot -gpu host -netdelay none -netspeed full
 adb wait-for-device
 adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done'
 
@@ -446,7 +489,7 @@ If no `latest` directory exists under `cmdline-tools`, put the `cmdline-tools/bi
 
 **Reaching the server.** The emulator reaches the host's LAN through NAT, so the Navidrome server's normal LAN address works. If the server runs on the Mac itself, use `10.0.2.2` instead of `localhost`. ICMP ping does not work from the emulator; use the app's Test button to check reachability.
 
-**Credentials.** Take them from the local env file (never commit it, and never paste them into an issue, a PR or this document). Type them into the emulator's keyboard, or use `adb shell input text '<value>'` (it mishandles some special characters). Prefer a read-only Navidrome account.
+**Credentials.** Take them from the local env file (never commit it, and never paste them into an issue, a PR or this document). Type them into the emulator's keyboard, or use `adb shell input text '<value>'` (it mishandles some special characters). Read the values in a small script and quote them for the device shell, so they are never printed; the editor's fields can be moved between with `adb shell input keyevent 61` (Tab), and a field cleared with `input keycombination 113 29` then `input keyevent 67`. Prefer a read-only Navidrome account.
 
 Keep a log running in a second terminal while testing:
 
@@ -496,7 +539,7 @@ Mark each as pass or fail and note what you saw. A failure here is a bug to fix 
 17. Play a track from the Search tab (Addons mode): results include the Navidrome server and tapping one plays it.
 18. Kill the app, reopen it, and resume the queue: the tracks still play (this exercises the pre-playback check).
 19. Take the server away while a Navidrome track is next in the queue: it is skipped with an error, and a YouTube copy is **not** substituted.
-20. Check the quality settings: with the connection set to a lower quality, the stream is the transcoded one and still plays.
+20. Check the quality settings: with the connection set to a lower quality, the stream is the transcoded one and still plays. Try Low, Medium and High, each on a track not played before (a cached track plays without being resolved, which hides the fault). This is the step that found the bug described under "Live verification".
 
 **G. Covers**
 21. Covers appear in the browse lists and the album header, and a missing cover shows the placeholder. They are cached only in memory, so expect them to reload after a restart (a known limitation).
@@ -514,12 +557,12 @@ adb emu kill                          # stop the emulator
 avdmanager delete avd -n bitchord-36  # optional: remove the virtual phone
 ```
 
-**Record the outcome** in the "Live verification" section: what passed, what failed and what was fixed. Fix failures on a branch and open a PR as before. Tick the "A selected result plays through the existing playback engine" box in section 10 only when steps 16 to 18 pass.
+**Record the outcome** in the "Live verification" section: what passed, what failed and what was fixed. Fix failures on a branch and open a PR as before. Tick the "A selected result plays through the existing playback engine" box in section 10 only when steps 16 to 18 pass. *(Done for the 2026-10-28 run.)*
 
 ### 11.2 Quality gates not yet run
 
 - **Lint and static analysis:** run `./gradlew lintDevDebug` (and whatever static analysis the project uses) and fix findings in the Navidrome files. Not run so far.
-- **Other modules:** `tv` built as part of the test run; build `wearos` and `web` as well to confirm they still compile (find the task names with `./gradlew tasks`). No code outside `app` references `SourceKind`, so a failure is not expected.
+- **Other modules:** not needed. Only the phone app (`app`) is built and tested for this work; `tv`, `wearos` and `web` are out of scope.
 - **CI:** the repository reports no CI checks on these branches, so "required CI passes" in section 10 cannot be ticked. Decide whether to add a workflow that runs `./gradlew testDevDebugUnitTest` and `assembleDevDebug`; the live test skips itself without the `NAVIDROME_*` variables, so it is safe there.
 - **Translations:** 13 strings, all named `navidrome_*` or `add_navidrome*`, are machine-written in 18 locale files under `app/src/main/res/values-*`. Have a speaker of each language check them, or at least the ones for the languages that matter most.
 
@@ -532,13 +575,16 @@ avdmanager delete avd -n bitchord-36  # optional: remove the virtual phone
 | Capped (transcoded) streams show an unknown codec | `NavidromeSource.stream` | Read the response `Content-Type` or the player's reported format. |
 | Single-character searches (`é`, `ñ`, `&`) returned nothing on the live server | `search3` use | Check whether Navidrome ignores very short queries; if so, say so in the UI. |
 | Two servers with the same explicit label are not flagged | `NavidromeEditorAlert` | Warn on a duplicate display name. |
-| A **deleted** server's queued tracks are re-matched across all sources, including YouTube | `SourceResolver.resolve` | A deleted config no longer says it was Navidrome; keep a small record of retired ids if this matters. |
+| A **deleted** server's queued tracks are re-matched across all sources, including YouTube. An **edited address** does the same (seen on the emulator: a queued track then played from YouTube Music) | `SourceResolver.resolve` | A deleted or re-pointed config no longer says it was Navidrome; keep a small record of retired ids if this matters. |
+| Removing a server has no confirmation | `NavidromeEditorAlert` | Ask before removing; it also deletes the stored login. |
+| The Albums list returns to the top after a font-scale change (rotation keeps its place) | browse screens | Keep the list state across a configuration change. |
+| In landscape the floating mini-player and tab bar cover list rows | browse screens | Add bottom content padding for the floating bars. |
 | Client error text is English only | `NavidromeException` messages | Map exception types to string resources in the UI. |
 | No TalkBack audit | browse screens, editor | Walk through with TalkBack on; add content descriptions and focus order fixes. |
 
 ### 11.4 Upstream
 
-All of this work is on the fork (`abucalip/BitChord`, PRs #1 to #6). **Nothing has been proposed to the upstream project** (`kushagrasinghx/BitChord`). Before opening anything there:
+All of this work is on the fork (`abucalip/BitChord`, PRs #1 to #7). **Nothing has been proposed to the upstream project** (`kushagrasinghx/BitChord`). Before opening anything there:
 
 1. `CONTRIBUTING.md` says substantial features should be discussed in an issue first; open one that links this document.
 2. It also says new work should branch from the current active version branch rather than `main`. Only `main` (latest tag `v1.8.1`) exists on the remotes, so ask the maintainers which branch to target.

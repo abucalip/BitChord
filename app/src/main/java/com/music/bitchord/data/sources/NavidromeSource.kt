@@ -72,11 +72,11 @@ class NavidromeSource(
                     is NavidromeException.InvalidUrl,
                     is NavidromeException.Unsupported,
                     is NavidromeException.Malformed,
-                    -> SourceHealth.Rejected(reason)
+                    -> SourceHealth.Rejected(reason, failure)
                     // Anything else may pass: worth keeping enabled and retrying.
                     else -> {
                         TrackLog.w(TAG, "${config.displayName}: unreachable — $reason")
-                        SourceHealth.Unreachable(reason)
+                        SourceHealth.Unreachable(reason, failure)
                     }
                 }
             },

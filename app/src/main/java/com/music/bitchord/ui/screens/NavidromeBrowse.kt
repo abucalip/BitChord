@@ -229,7 +229,7 @@ internal fun NavidromeLibraryScreen(
         item(key = "state:$tab") {
             when {
                 current.error != null -> Failed(
-                    message = current.error.orEmpty(),
+                    error = current.error,
                     compact = current.items.isNotEmpty(),
                 ) { scope.launch { current.retry() } }
                 current.loading && current.items.isEmpty() -> Skeletons()
@@ -257,17 +257,22 @@ internal fun NavidromeArtistScreen(
     }
     var attempt by remember { mutableIntStateOf(0) }
     var state by remember { mutableStateOf<UiState<List<LibraryAlbum>>>(UiState.Loading) }
+    var failure by remember { mutableStateOf<Throwable?>(null) }
     LaunchedEffect(library, artistId, attempt) {
         state = UiState.Loading
+        failure = null
         state = library.artistAlbums(artistId).fold(
             onSuccess = { UiState.Success(it) },
-            onFailure = { UiState.Error(it.message ?: "") },
+            onFailure = {
+                failure = it
+                UiState.Error("")
+            },
         )
     }
     LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = contentPadding) {
         when (val s = state) {
             UiState.Loading -> item { Skeletons() }
-            is UiState.Error -> item { Failed(s.message) { attempt++ } }
+            is UiState.Error -> item { Failed(failure) { attempt++ } }
             is UiState.Success -> if (s.data.isEmpty()) {
                 item { MessageState(stringResource(R.string.navidrome_empty)) }
             } else {
@@ -303,11 +308,16 @@ internal fun NavidromeAlbumScreen(
     }
     var attempt by remember { mutableIntStateOf(0) }
     var state by remember { mutableStateOf<UiState<List<Song>>>(UiState.Loading) }
+    var failure by remember { mutableStateOf<Throwable?>(null) }
     LaunchedEffect(library, albumId, attempt) {
         state = UiState.Loading
+        failure = null
         state = library.albumTracks(albumId).fold(
             onSuccess = { UiState.Success(it) },
-            onFailure = { UiState.Error(it.message ?: "") },
+            onFailure = {
+                failure = it
+                UiState.Error("")
+            },
         )
     }
     LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = contentPadding) {
@@ -323,7 +333,7 @@ internal fun NavidromeAlbumScreen(
         }
         when (val s = state) {
             UiState.Loading -> songListSkeleton(count = 8, keyPrefix = "skeleton:navidrome-album")
-            is UiState.Error -> item { Failed(s.message) { attempt++ } }
+            is UiState.Error -> item { Failed(failure) { attempt++ } }
             is UiState.Success -> if (s.data.isEmpty()) {
                 item { MessageState(stringResource(R.string.navidrome_empty)) }
             } else {
@@ -531,9 +541,9 @@ private fun Spinner() {
 }
 
 @Composable
-private fun Failed(message: String, compact: Boolean = false, onRetry: () -> Unit) {
+private fun Failed(error: Throwable?, compact: Boolean = false, onRetry: () -> Unit) {
     MessageState(
-        message = message.ifBlank { stringResource(R.string.navidrome_unavailable) },
+        message = error?.let { navidromeErrorText(it) } ?: stringResource(R.string.navidrome_unavailable),
         actionLabel = stringResource(R.string.try_again),
         onAction = onRetry,
         modifier = if (compact) Modifier.padding(vertical = 0.dp) else Modifier,

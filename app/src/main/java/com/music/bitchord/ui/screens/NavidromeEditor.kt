@@ -70,6 +70,8 @@ internal fun NavidromeEditorAlert(
     var label by remember { mutableStateOf(config.label) }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
+    // The failure behind a health status, so the text can be localised at composition.
+    var statusCause by remember { mutableStateOf<Throwable?>(null) }
     var statusIsGood by remember { mutableStateOf(false) }
     var confirmRemove by remember { mutableStateOf(false) }
 
@@ -84,6 +86,7 @@ internal fun NavidromeEditorAlert(
     fun typedUrl() = url.trim().let { if ("://" in it || it.isEmpty()) it else "https://$it" }
 
     fun run(thenSave: Boolean) {
+        statusCause = null
         val address = NavidromeClient.normalizeBase(typedUrl())?.toString()?.trimEnd('/')
         if (address == null || address.substringBefore("://") !in setOf("http", "https")) {
             statusIsGood = false
@@ -122,6 +125,11 @@ internal fun NavidromeEditorAlert(
                     .getOrElse { SourceHealth.Unreachable(it.message ?: "Failed") }
             }
             statusIsGood = health.isOk
+            statusCause = when (health) {
+                is SourceHealth.Rejected -> health.cause
+                is SourceHealth.Unreachable -> health.cause
+                is SourceHealth.Ok -> null
+            }
             status = when (health) {
                 is SourceHealth.Ok -> listOfNotNull(connected, health.detail).joinToString(" · ")
                 is SourceHealth.Rejected -> health.reason
@@ -183,7 +191,7 @@ internal fun NavidromeEditorAlert(
                 placeholder = stringResource(R.string.navidrome_name_optional),
             ),
         ),
-        status = status,
+        status = status?.let { statusCause?.let { cause -> navidromeErrorText(cause) } ?: it },
         statusIsGood = statusIsGood,
         testing = busy,
         canSubmit = url.isNotBlank() && username.isNotBlank() && (password.isNotEmpty() || stored != null),

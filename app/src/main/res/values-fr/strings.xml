@@ -1380,6 +1380,15 @@
     <string name="navidrome_name_optional">Nom (facultatif)</string>
     <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
     <string name="navidrome_remove_confirmation">Remove this server? Its saved password is deleted too.</string>
+    <string name="navidrome_err_network">Could not reach the server. Check the address and your connection.</string>
+    <string name="navidrome_err_timeout">The server took too long to answer. Try again in a moment.</string>
+    <string name="navidrome_err_tls">A secure connection could not be established. Check the server’s certificate.</string>
+    <string name="navidrome_err_auth">The server did not accept this username or password.</string>
+    <string name="navidrome_err_unsupported">This address does not look like a Navidrome or Subsonic server.</string>
+    <string name="navidrome_err_rate_limited">The server is limiting requests. Try again in a little while.</string>
+    <string name="navidrome_err_server">The server had a problem (HTTP %1$d). Try again later.</string>
+    <string name="navidrome_err_not_found">The server does not have that track.</string>
+    <string name="navidrome_err_malformed">The server sent a reply BitChord could not read.</string>
     <string name="navidrome_invalid_url">Ce n’est pas une adresse http ou https valide</string>
     <string name="navidrome_password_required">Saisissez le mot de passe du compte</string>
     <string name="navidrome_secure_storage_unavailable">Le stockage sécurisé n’est pas disponible sur cet appareil, le mot de passe n’a donc pas été enregistré</string>

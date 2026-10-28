@@ -23,7 +23,7 @@ internal class PagedList<T>(private val fetch: suspend (offset: Int) -> Result<L
         private set
     var loading by mutableStateOf(false)
         private set
-    var error by mutableStateOf<String?>(null)
+    var error by mutableStateOf<Throwable?>(null)
         private set
     private var nextOffset: Int? = 0
     var started = false
@@ -52,7 +52,7 @@ internal class PagedList<T>(private val fetch: suspend (offset: Int) -> Result<L
                 items = items + page.items
                 nextOffset = page.nextOffset
             },
-            onFailure = { error = it.message ?: "" },
+            onFailure = { error = it },
         )
         loading = false
     }

@@ -237,7 +237,7 @@ class NavidromeClient(
         is CancellationException -> failure
         is NavidromeException -> failure
         is SSLException -> NavidromeException.Tls()
-        is SocketTimeoutException -> NavidromeException.Network("The server took too long to answer")
+        is SocketTimeoutException -> NavidromeException.Network("The server took too long to answer", timedOut = true)
         is IOException -> NavidromeException.Network("Could not reach the server")
         else -> NavidromeException.Malformed("Unexpected response")
     }
@@ -300,7 +300,7 @@ class NavidromeClient(
 /** Why a Navidrome call failed, in terms the UI can explain without secrets. */
 sealed class NavidromeException(message: String) : Exception(message) {
     class InvalidUrl : NavidromeException("That is not a valid http or https address")
-    class Network(message: String) : NavidromeException(message)
+    class Network(message: String, val timedOut: Boolean = false) : NavidromeException(message)
     class Tls : NavidromeException("A secure connection could not be established (check the certificate)")
     class Auth(message: String) : NavidromeException(message)
     class Unsupported(message: String) : NavidromeException(message)

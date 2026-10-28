@@ -86,8 +86,9 @@ sealed interface StreamRequest {
  */
 sealed interface SourceHealth {
     data class Ok(val detail: String? = null) : SourceHealth
-    data class Unreachable(val reason: String) : SourceHealth
-    data class Rejected(val reason: String) : SourceHealth
+    /** [cause] lets a UI localise the reason when the source knows what went wrong; [reason] stays the English fallback. */
+    data class Unreachable(val reason: String, val cause: Throwable? = null) : SourceHealth
+    data class Rejected(val reason: String, val cause: Throwable? = null) : SourceHealth
 
     val isOk: Boolean get() = this is Ok
 }

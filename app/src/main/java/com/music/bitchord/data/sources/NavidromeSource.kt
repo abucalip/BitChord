@@ -166,6 +166,12 @@ class NavidromeSource(
         toSong(song)
     }
 
+    override suspend fun favorites(): Result<List<Song>> =
+        browse("favorites") { client -> client.starredSongs().map(::toTracks) }
+
+    override suspend fun setFavorite(trackId: String, favorite: Boolean): Result<Unit> =
+        browse("set favorite") { client -> client.setStarred(trackId, favorite) }
+
     override fun artworkUrl(artworkRef: String, sizePx: Int): String? =
         client()?.coverArtUrl(artworkRef, sizePx)?.getOrNull()
 

@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import com.music.bitchord.R
+import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.playingRowMatcher
@@ -83,6 +84,8 @@ private const val PAGE = 50
 /** Segments of the library screen. */
 private const val TAB_ARTISTS = 0
 private const val TAB_ALBUMS = 1
+private const val TAB_PLAYLISTS = 2
+private const val TAB_FAVORITES = 3
 
 /**
  * A listing the server returns whole. [fetch] runs once, on the first page; later
@@ -165,9 +168,9 @@ private fun rememberLibrary(configId: String): BrowsableMusicLibrary? {
 }
 
 /**
- * A Navidrome server's library: Artists, Albums and Playlists.
+ * A Navidrome server's library: Artists, Albums, Playlists and Favorites.
  *
- * Artists and playlists come as one lightweight listing shown a page at a time;
+ * Artists, playlists and favorites come as one listing shown a page at a time;
  * albums are genuinely paged by the server, so a large library is never loaded whole.
  * Every state a network list can be in has its own face: loading skeletons, an
  * empty library, an error with Try Again (also at the foot of a list when only
@@ -179,6 +182,11 @@ internal fun NavidromeLibraryScreen(
     onOpenArtist: (LibraryArtist) -> Unit,
     onOpenAlbum: (LibraryAlbum) -> Unit,
     onOpenPlaylist: (LibraryPlaylist) -> Unit,
+    onPlayFavorites: (List<Song>, Int) -> Unit,
+    onSongLongPress: (Song) -> Unit,
+    onSongSwipe: (Song) -> Unit,
+    currentSong: Song?,
+    isPlaying: Boolean,
     contentPadding: PaddingValues,
     barsHeight: () -> Int,
     modifier: Modifier = Modifier,
@@ -195,6 +203,14 @@ internal fun NavidromeLibraryScreen(
     // Listings the server does not page: fetched once, then paged over in memory.
     val artists = remember(library) { wholeListPages { library.artists() } }
     val playlists = remember(library) { wholeListPages { library.playlists() } }
+    // The server's favorites also say what the heart should show for those tracks.
+    val favorites = remember(library) {
+        wholeListPages {
+            library.favorites().onSuccess { songs ->
+                LikeState.seedLiked(songs.mapTo(HashSet()) { it.videoId })
+            }
+        }
+    }
     var albumPage by rememberSaveable(configId, stateSaver = albumPageSaver) {
         mutableStateOf(LibraryPage<LibraryAlbum>(emptyList(), 0))
     }
@@ -207,8 +223,10 @@ internal fun NavidromeLibraryScreen(
     val current = when (tab) {
         TAB_ARTISTS -> artists
         TAB_ALBUMS -> albums
-        else -> playlists
+        TAB_PLAYLISTS -> playlists
+        else -> favorites
     }
+    val favoriteRowMatcher = playingRowMatcher(favorites.items, currentSong)
 
     // Starts the visible list, then extends it whenever the end comes near.
     LaunchedEffect(current) {
@@ -227,6 +245,7 @@ internal fun NavidromeLibraryScreen(
                     stringResource(R.string.artists),
                     stringResource(R.string.albums),
                     stringResource(R.string.playlists),
+                    stringResource(R.string.navidrome_favorites),
                 ),
                 selectedIndex = tab,
                 onSelect = { tab = it },
@@ -251,7 +270,7 @@ internal fun NavidromeLibraryScreen(
                 AlbumRow(configId, album) { onOpenAlbum(album) }
                 if (index < albums.items.lastIndex) RowRule()
             }
-            else -> items(playlists.items.size, key = { "playlist:${playlists.items[it].id}" }) { index ->
+            TAB_PLAYLISTS -> items(playlists.items.size, key = { "playlist:${playlists.items[it].id}" }) { index ->
                 val playlist = playlists.items[index]
                 BrowseRow(
                     title = playlist.name,
@@ -262,6 +281,22 @@ internal fun NavidromeLibraryScreen(
                     onClick = { onOpenPlaylist(playlist) },
                 )
                 if (index < playlists.items.lastIndex) RowRule()
+            }
+            else -> items(favorites.items.size, key = { "favorite:${favorites.items[it].videoId}" }) { index ->
+                val songs = favorites.items
+                val song = songs[index]
+                SongRow(
+                    song = song,
+                    onClick = { onPlayFavorites(songs, index) },
+                    onLongPress = { onSongLongPress(song) },
+                    onSwipeToQueue = { onSongSwipe(song) },
+                    trackNumber = index + 1,
+                    isCurrent = favoriteRowMatcher(song),
+                    isPlaying = favoriteRowMatcher(song) && isPlaying,
+                    searchPlayingStyle = true,
+                    activeTint = PlayingAccent,
+                )
+                if (index < songs.lastIndex) RowRule()
             }
         }
         item(key = "state:$tab") {

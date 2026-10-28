@@ -17,6 +17,7 @@ internal fun NavidromeException.messageRes(): Int = when (this) {
     is NavidromeException.RateLimited -> R.string.navidrome_err_rate_limited
     is NavidromeException.ServerError -> R.string.navidrome_err_server
     is NavidromeException.NotFound -> R.string.navidrome_err_not_found
+    is NavidromeException.NotAllowed -> R.string.navidrome_err_not_allowed
     is NavidromeException.Malformed -> R.string.navidrome_err_malformed
 }
 

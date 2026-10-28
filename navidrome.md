@@ -352,6 +352,32 @@ Status: implemented on branch `navidrome-playlists`. Read-only: no create, renam
 - **No new strings.** Reuses `playlists`, `navidrome_empty`, `navidrome_unavailable` and the error strings, so the 18 locales need no change.
 - **Tests.** Client parsing of both responses (including malformed and missing fields, and the order kept); source mapping and isolation across two servers with the same ids; the route and queue label; empty and error results.
 
+#### 4.2 Favorites and ratings: design
+
+Status: favorites implemented on branch `navidrome-favorites`; ratings deferred (below). Scope: star and unstar songs on the server, and list the songs the login has starred. Nothing else. Tests: see the outcome note at the end of this section.
+
+- **API.** `getStarred2` (no parameters) returns `starred2.song[]` for this login. `star?id=` and `unstar?id=` take a song id and are idempotent: starring a starred song succeeds. All three are Subsonic methods already covered by the token authentication in section 4, with no new credentials or parameters.
+- **Read semantics.** The favorites list is read from the server every time the Favorites segment is opened, in the server's order, never cached. Blank ids are dropped. The list is the server's answer, so a track starred from the Navidrome web UI appears on the next open.
+- **Write semantics.** A write is one call for one track. The app does not queue writes, retry them or batch them. The heart shows the new state at once and is rolled back if the server refuses or cannot be reached, so the screen only ever shows a state the server accepted or is still deciding on.
+- **Permissions.** Subsonic error 50 (the login may not perform the operation) maps to `NavidromeException.NotAllowed`, with its own message. A read-only login therefore sees the favorites list and a clear refusal on each toggle, never a silent no-op. Any other failure is shown as "Could not update favorites on the server" and rolled back.
+- **Conflict behaviour.** Last write wins on the server, and the app does not poll. Starring and unstarring are idempotent, so a duplicate from a retry or a second device cannot produce a wrong state beyond what the user last asked for. A track unstarred elsewhere keeps its heart as it was until the Favorites segment is opened again, and the next toggle then sends the state the user chose, not a guess.
+- **UI entry point.** Two surfaces, both in the existing "Server libraries" flow:
+  1. A Favorites segment beside Artists, Albums and Playlists. Rows play through the same queue path as an album, labelled "Favorites" with the server id in the queue source (no URL, no credential). Loading, empty ("Nothing here yet"), error with Try Again, and server-unavailable states are the ones the other segments already have.
+  2. The song's long-press sheet. For a Navidrome track the YouTube controls (like, dislike, add to playlist, remove from playlist) are hidden, because they would send a YouTube request with a Navidrome id. A single "Add to favorites" / "Remove from favorites" row takes their place. Other tracks are unchanged.
+- **Other heart surfaces.** The player's heart and the notification's favorite button are YouTube controls. For a Navidrome track `setLike` routes to the server favorite instead of YouTube, and the notification button and widget favorite are hidden or ignored for Navidrome tracks. The player's heart is still shown only while YouTube is signed in, which is unchanged; see the gaps below.
+- **Error states.** Mapped through the existing `navidromeErrorText` path: `NotAllowed` has its own string; a network or server failure uses the existing network and server strings. Failures on toggle are shown as a short toast; the list shows the same error states as the other segments. No error text contains a URL, token or salt.
+- **Per-server isolation.** A favorite is written only to the server the track came from. The request uses the server's own song id, taken from the track key after its config id has been checked, so the same song id on two servers is two independent favorites. The favorites list for one server never contains another server's tracks. A favorite on a server that is disabled or removed is not reachable from the sheet, because the source is not browsable.
+- **Ratings (deferred).** Subsonic `setRating` (0 to 5) and the `userRating` field on songs would need a star-style rating control, a different sheet row and a second write path. Not started, so as to keep this change to one reviewable concept. It gets its own short design and PR, as the other Phase 4 items do.
+- **Strings.** Five new keys (`navidrome_favorites`, `navidrome_favorite`, `navidrome_unfavorite`, `navidrome_favorite_failed`, `navidrome_err_not_allowed`), in `values/strings.xml` and the 18 locales. The locale entries are English placeholders until translators replace them, as with the error text in 11.3.
+
+**Known gaps (not fixed in this change)**
+
+- The player's heart is hidden for Navidrome-only users (it needs a YouTube sign-in), so those users favorite from the sheet only.
+- A Navidrome track's initial heart state comes from the Favorites segment, not from each track. A track starred on the server but never shown in Favorites opens as not favorite, and tapping "Add to favorites" sends the same star again; the result is correct, but the first tap looks like a no-op.
+- The Favorites list does not drop a track that was removed from it until the segment is reopened.
+- Four segments in one control may be cramped on a narrow phone; not checked on a device.
+- Not verified against a live server or on a device (see 11.7).
+
 ## 6. Test plan
 
 Use the repository's established framework. Prefer a mocked HTTP engine or local test server. Unit tests must not require a live Navidrome server or real credentials.

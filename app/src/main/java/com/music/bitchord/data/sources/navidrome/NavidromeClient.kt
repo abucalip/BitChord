@@ -129,6 +129,21 @@ class NavidromeClient(
             response.playlist?.entry.orEmpty().filter { it.id.isNotBlank() }
         }
 
+    /**
+     * The tracks this login has starred (favorites), via `getStarred2`. Only
+     * songs are read; starred albums and artists are not part of this feature.
+     */
+    suspend fun starredSongs(): Result<List<NavidromeSong>> = call("getStarred2").map { response ->
+        response.starred2?.song.orEmpty().filter { it.id.isNotBlank() }
+    }
+
+    /**
+     * Stars or unstars one track for this login, via `star` / `unstar`. Both are
+     * idempotent on the server: starring a starred track succeeds.
+     */
+    suspend fun setStarred(trackId: String, starred: Boolean): Result<Unit> =
+        call(if (starred) "star" else "unstar", "id" to trackId).map { }
+
     /** The tracks of one album in play order (disc, then track), via `getAlbum`. */
     suspend fun albumSongs(albumId: String): Result<List<NavidromeSong>> =
         call("getAlbum", "id" to albumId).map { response ->
@@ -254,6 +269,7 @@ class NavidromeClient(
         val error = response.error
         throw when (error?.code) {
             40, 41, 42, 43, 44 -> NavidromeException.Auth(authReason(error.code))
+            50 -> NavidromeException.NotAllowed()
             70 -> NavidromeException.NotFound()
             else -> NavidromeException.Unsupported("The server reported an error (code ${error?.code ?: "?"})")
         }
@@ -354,5 +370,7 @@ sealed class NavidromeException(message: String) : Exception(message) {
     class RateLimited : NavidromeException("The server is rate limiting BitChord")
     class ServerError(val code: Int) : NavidromeException("The server had a problem (HTTP $code)")
     class NotFound : NavidromeException("The server does not have that track")
+    /** Subsonic error 50: this login may not perform the operation (for example, change favorites). */
+    class NotAllowed : NavidromeException("This account is not allowed to change favorites on this server")
     class Malformed(message: String) : NavidromeException(message)
 }

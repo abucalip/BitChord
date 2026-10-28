@@ -69,6 +69,8 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -672,6 +674,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * registered, and people tap again.
      */
     fun setLike(videoId: String, status: LikeStatus) {
+        if (SourceRegistry.isNavidromeTrack(videoId)) {
+            // A server has no dislike, so only the heart reaches it.
+            if (status != LikeStatus.DISLIKE) setServerFavorite(videoId, favorite = status == LikeStatus.LIKE)
+            return
+        }
         if (!requireSignIn()) return
         val previous = likeStatusOf(videoId)
         if (previous == status) return
@@ -751,6 +758,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private val _serverFavoriteFailures = MutableSharedFlow<Throwable>(extraBufferCapacity = 4)
+
+    /** A server favorite that could not be saved, so the screen can say why. The change has already been undone. */
+    val serverFavoriteFailures: SharedFlow<Throwable> = _serverFavoriteFailures.asSharedFlow()
+
+    /**
+     * Stars or unstars a Navidrome track on its own server. This is the heart for
+     * a Navidrome track, and it never reaches YouTube.
+     *
+     * Written to the screen first and rolled back if the server refuses, as the
+     * YouTube heart is. The failure is also emitted, so a read-only login or a
+     * dropped connection is said out loud rather than looking like a tap that did nothing.
+     */
+    fun setServerFavorite(videoId: String, favorite: Boolean) {
+        val (configId, trackId) = SourceRegistry.parseTrackKey(videoId) ?: return
+        val library = SourceRegistry.browsable(configId) ?: return
+        val previous = likeStatusOf(videoId)
+        val target = if (favorite) LikeStatus.LIKE else LikeStatus.INDIFFERENT
+        if (previous == target) return
+        LikeState.set(videoId, target)
+        viewModelScope.launch {
+            library.setFavorite(trackId, favorite).onFailure { failure ->
+                LikeState.set(videoId, previous)
+                _serverFavoriteFailures.tryEmit(failure)
+            }
+        }
+    }
+
     /** The heart: liked becomes neutral, anything else becomes liked. */
     fun toggleLike(videoId: String) = setLike(
         videoId,
@@ -759,6 +794,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** As [toggleLike], for the thumb-down. */
     fun toggleDislike(videoId: String): LikeStatus? {
+        if (SourceRegistry.isNavidromeTrack(videoId)) return null
         if (!requireSignIn()) return null
         val previous = likeStatusOf(videoId)
         setLike(

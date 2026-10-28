@@ -1,5 +1,9 @@
 package com.music.bitchord
 
+import com.music.bitchord.data.sources.BrowsableMusicLibrary
+import com.music.bitchord.data.sources.LibraryAlbum
+import com.music.bitchord.data.sources.LibraryArtist
+import com.music.bitchord.data.sources.LibraryPage
 import com.music.bitchord.data.sources.NavidromeSource
 import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceHealth
@@ -253,5 +257,83 @@ class NavidromeSourceTest {
         serverA.enqueue(ok("\"searchResult3\":{\"song\":[{\"id\":\"$id\",\"title\":\"t\"}]}"))
         val song = source(config(serverA, "a")).search("t").single()
         assertEquals("a" to id, SourceRegistry.parseTrackKey(song.videoId))
+    }
+
+    // ── Browsing ──────────────────────────────────────────────────────────
+
+    @Test
+    fun `a navidrome source is browsable and other sources are not forced to be`() {
+        val s: Any = source(config(serverA, "a"))
+        assertTrue(s is BrowsableMusicLibrary)
+        assertFalse(com.music.bitchord.data.sources.MusicSource::class.java.interfaces
+            .contains(BrowsableMusicLibrary::class.java))
+    }
+
+    @Test
+    fun `artists map to library artists`() = runTest {
+        serverA.enqueue(ok("\"artists\":{\"index\":[{\"artist\":[{\"id\":\"7\",\"name\":\"Seven\",\"albumCount\":2,\"coverArt\":\"ar-7\"}]}]}"))
+        val artist = source(config(serverA, "a")).artists().getOrThrow().single()
+        assertEquals(LibraryArtist("7", "Seven", 2, "ar-7"), artist)
+    }
+
+    @Test
+    fun `a full page of albums has a next offset and a short one does not`() = runTest {
+        val two = """{"id":"1","name":"A","artist":"X","artistId":"9","songCount":10,"year":2001,"coverArt":"al-1"},{"id":"2","name":"B","artist":"X"}"""
+        serverA.enqueue(ok("\"albumList2\":{\"album\":[$two]}"))
+        serverA.enqueue(ok("\"albumList2\":{\"album\":[{\"id\":\"3\",\"name\":\"C\"}]}"))
+        val s = source(config(serverA, "a"))
+
+        val first = s.albums(offset = 0, limit = 2).getOrThrow()
+        assertEquals(2, first.nextOffset)
+        assertEquals(LibraryAlbum("1", "A", "X", "9", 2001, 10, "al-1"), first.items[0])
+        assertNull(first.items[1].year)
+
+        val last = s.albums(offset = 2, limit = 2).getOrThrow()
+        assertNull(last.nextOffset)
+        assertEquals("2", serverA.takeRequest().let { serverA.takeRequest() }.requestUrl!!.queryParameter("offset"))
+    }
+
+    @Test
+    fun `album tracks play back through this source and stay isolated by server`() = runTest {
+        val body = "\"album\":{\"song\":[{\"id\":\"42\",\"title\":\"One\",\"track\":1}]}"
+        serverA.enqueue(ok(body))
+        serverB.enqueue(ok(body))
+        val a = source(config(serverA, "id-a")).albumTracks("alb").getOrThrow().single()
+        val b = source(config(serverB, "id-b")).albumTracks("alb").getOrThrow().single()
+        assertEquals("id-a" to "42", SourceRegistry.parseTrackKey(a.videoId))
+        assertEquals("id-b" to "42", SourceRegistry.parseTrackKey(b.videoId))
+        assertEquals(1, a.trackNumber)
+    }
+
+    @Test
+    fun `failures come back as results the screen can render`() = runTest {
+        serverA.enqueue(MockResponse().setResponseCode(503))
+        assertTrue(source(config(serverA, "a")).artists().isFailure)
+        assertTrue(source(config(serverA, "a"), login = null).albums().isFailure)
+        assertEquals(0, serverA.requestCount - 1)
+    }
+
+    @Test
+    fun `artwork urls are authenticated and nothing is stored on the album`() = runTest {
+        val s = source(config(serverA, "a"))
+        val url = s.artworkUrl("al-1", 256)!!.toHttpUrl()
+        assertEquals("/rest/getCoverArt", url.encodedPath)
+        assertEquals("alice", url.queryParameter("u"))
+        assertNull(source(config(serverA, "a"), login = null).artworkUrl("al-1", 256))
+
+        serverA.enqueue(ok("\"albumList2\":{\"album\":[{\"id\":\"1\",\"name\":\"A\",\"coverArt\":\"al-1\"}]}"))
+        val album = s.albums(limit = 5).getOrThrow().items.single()
+        assertEquals("al-1", album.artworkRef)
+        assertFalse(album.toString().contains("hunter2"))
+        assertFalse(album.toString().contains("/rest/"))
+    }
+
+    @Test
+    fun `library page slices an in-memory list`() {
+        val all = (1..5).toList()
+        assertEquals(LibraryPage(listOf(1, 2), 2), LibraryPage.of(all, 0, 2))
+        assertEquals(LibraryPage(listOf(5), null), LibraryPage.of(all, 4, 2))
+        assertEquals(LibraryPage(emptyList<Int>(), null), LibraryPage.of(all, 99, 2))
+        assertEquals(LibraryPage(emptyList<Int>(), null), LibraryPage.of(emptyList<Int>(), 0, 2))
     }
 }

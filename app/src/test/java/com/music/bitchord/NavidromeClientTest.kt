@@ -3,6 +3,7 @@ package com.music.bitchord
 import com.music.bitchord.data.sources.navidrome.NavidromeClient
 import com.music.bitchord.data.sources.navidrome.NavidromeException
 import kotlinx.coroutines.test.runTest
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
@@ -228,7 +229,7 @@ class NavidromeClientTest {
         val client = client()
         val first = client.streamUrl("42").getOrThrow()
         val second = client.streamUrl("42").getOrThrow()
-        val url = okhttp3.HttpUrl.Companion.run { first.toHttpUrl() }
+        val url = first.toHttpUrl()
 
         assertEquals("/rest/stream", url.encodedPath)
         assertEquals("42", url.queryParameter("id"))
@@ -240,14 +241,103 @@ class NavidromeClientTest {
 
     @Test
     fun `stream url honours a bitrate cap`() {
-        val url = okhttp3.HttpUrl.Companion.run { client().streamUrl("42", maxKbps = 128).getOrThrow().toHttpUrl() }
+        val url = client().streamUrl("42", maxKbps = 128).getOrThrow().toHttpUrl()
         assertEquals("128", url.queryParameter("maxBitRate"))
         assertNull(url.queryParameter("format"))
     }
 
     @Test
     fun `track ids with special characters survive`() {
-        val url = okhttp3.HttpUrl.Companion.run { client().streamUrl("a&b=c d/é").getOrThrow().toHttpUrl() }
+        val url = client().streamUrl("a&b=c d/é").getOrThrow().toHttpUrl()
         assertEquals("a&b=c d/é", url.queryParameter("id"))
+    }
+
+    // ── Browsing ──────────────────────────────────────────────────────────
+
+    @Test
+    fun `artists are flattened across index letters`() = runTest {
+        server.enqueue(
+            ok(
+                """"artists":{"index":[
+                  {"name":"A","artist":[{"id":"1","name":"Abba","albumCount":9,"coverArt":"ar-1"}]},
+                  {"name":"B","artist":[{"id":"2","name":"Björk"},{"id":"","name":"No id"}]},
+                  {"name":"C"}
+                ]}""",
+            ),
+        )
+        val artists = client().listArtists().getOrThrow()
+        assertEquals(listOf("1", "2"), artists.map { it.id })
+        assertEquals(9, artists[0].albumCount)
+        assertEquals("Björk", artists[1].name)
+        assertEquals("/rest/getArtists", server.takeRequest().requestUrl!!.encodedPath)
+    }
+
+    @Test
+    fun `an empty library is an empty list not an error`() = runTest {
+        server.enqueue(ok("\"artists\":{\"index\":[]}"))
+        server.enqueue(ok("\"albumList2\":{}"))
+        server.enqueue(ok("\"x\":1"))
+        val client = client()
+        assertTrue(client.listArtists().getOrThrow().isEmpty())
+        assertTrue(client.listAlbums().getOrThrow().isEmpty())
+        assertTrue(client.listArtists().getOrThrow().isEmpty())
+    }
+
+    @Test
+    fun `albums are requested one page at a time`() = runTest {
+        server.enqueue(ok("\"albumList2\":{\"album\":[{\"id\":\"9\",\"name\":\"Nine\",\"artist\":\"X\",\"songCount\":12,\"year\":1999}]}"))
+        val albums = client().listAlbums(offset = 100, count = 25).getOrThrow()
+        assertEquals("Nine", albums.single().name)
+        assertEquals(12, albums.single().songCount)
+
+        val url = server.takeRequest().requestUrl!!
+        assertEquals("/rest/getAlbumList2", url.encodedPath)
+        assertEquals("100", url.queryParameter("offset"))
+        assertEquals("25", url.queryParameter("size"))
+        assertEquals("alphabeticalByName", url.queryParameter("type"))
+    }
+
+    @Test
+    fun `an artist's albums are fetched by id`() = runTest {
+        server.enqueue(ok("\"artist\":{\"id\":\"1\",\"album\":[{\"id\":\"a1\",\"name\":\"One\"},{\"id\":\"a2\",\"name\":\"Two\"}]}"))
+        assertEquals(listOf("a1", "a2"), client().artistAlbums("1").getOrThrow().map { it.id })
+        assertEquals("1", server.takeRequest().requestUrl!!.queryParameter("id"))
+    }
+
+    @Test
+    fun `album tracks come back in disc then track order`() = runTest {
+        server.enqueue(
+            ok(
+                """"album":{"id":"a","song":[
+                  {"id":"d2t1","title":"c","discNumber":2,"track":1},
+                  {"id":"d1t2","title":"b","discNumber":1,"track":2},
+                  {"id":"nonum1","title":"x"},
+                  {"id":"d1t1","title":"a","discNumber":1,"track":1},
+                  {"id":"nonum2","title":"y"}
+                ]}""",
+            ),
+        )
+        val ids = client().albumSongs("a").getOrThrow().map { it.id }
+        assertEquals(listOf("d1t1", "d1t2", "nonum1", "nonum2", "d2t1"), ids)
+    }
+
+    @Test
+    fun `a missing album is not found`() = runTest {
+        server.enqueue(failed(70))
+        assertTrue(client().albumSongs("gone").exceptionOrNull() is NavidromeException.NotFound)
+    }
+
+    @Test
+    fun `cover art url is authenticated sized and fresh each time`() {
+        val client = client()
+        val first = client.coverArtUrl("al-9", 300).getOrThrow()
+        val second = client.coverArtUrl("al-9", 300).getOrThrow()
+        val url = first.toHttpUrl()
+        assertEquals("/rest/getCoverArt", url.encodedPath)
+        assertEquals("al-9", url.queryParameter("id"))
+        assertEquals("300", url.queryParameter("size"))
+        assertNotNull(url.queryParameter("t"))
+        assertFalse(first.contains("s3cret"))
+        assertNotEquals(first, second)
     }
 }

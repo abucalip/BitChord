@@ -71,6 +71,59 @@ class NavidromeClient(
         ).map { it.searchResult3?.song.orEmpty().filter { song -> song.id.isNotBlank() } }
 
     /**
+     * Every artist the server lists. `getArtists` is not paged by the API, but
+     * it is the lightweight listing (no tracks), so the whole thing is one
+     * small response; callers page over the result.
+     */
+    suspend fun listArtists(): Result<List<NavidromeArtist>> = call("getArtists").map { response ->
+        response.artists?.index.orEmpty()
+            .flatMap { it.artist }
+            .filter { it.id.isNotBlank() }
+    }
+
+    /** One page of albums, via `getAlbumList2` (paged by [offset]). */
+    suspend fun listAlbums(
+        offset: Int = 0,
+        count: Int = 50,
+        type: String = ALBUMS_BY_NAME,
+    ): Result<List<NavidromeAlbum>> = call(
+        "getAlbumList2",
+        "type" to type,
+        "size" to count.toString(),
+        "offset" to offset.toString(),
+    ).map { it.albumList2?.album.orEmpty().filter { album -> album.id.isNotBlank() } }
+
+    /** The albums of one artist, via `getArtist`. */
+    suspend fun artistAlbums(artistId: String): Result<List<NavidromeAlbum>> =
+        call("getArtist", "id" to artistId)
+            .map { it.artist?.album.orEmpty().filter { album -> album.id.isNotBlank() } }
+
+    /** The tracks of one album in play order (disc, then track), via `getAlbum`. */
+    suspend fun albumSongs(albumId: String): Result<List<NavidromeSong>> =
+        call("getAlbum", "id" to albumId).map { response ->
+            response.album?.song.orEmpty()
+                .filter { it.id.isNotBlank() }
+                // Stable: tracks with no numbers keep the server's order.
+                .sortedWith(compareBy({ it.discNumber ?: 1 }, { it.track ?: Int.MAX_VALUE }))
+        }
+
+    /**
+     * An authenticated URL for cover art [coverArtId], at most [sizePx] square.
+     *
+     * Carries the login as query parameters like [streamUrl]: hand it to the
+     * image loader at request time and never store it. Cache images under the
+     * source id and [coverArtId], not under this URL.
+     */
+    fun coverArtUrl(coverArtId: String, sizePx: Int): Result<String> = runCatching {
+        val url = endpoint("getCoverArt") ?: throw NavidromeException.InvalidUrl()
+        url.newBuilder()
+            .addQueryParameter("id", coverArtId)
+            .addQueryParameter("size", sizePx.toString())
+            .build()
+            .toString()
+    }
+
+    /**
      * The URL the player should open for [trackId].
      *
      * Subsonic has no header-based authentication, so the credentials travel as
@@ -172,6 +225,9 @@ class NavidromeClient(
         /** The oldest Subsonic API version that has token auth and `search3`. */
         const val API_VERSION = "1.16.1"
         const val CLIENT_NAME = "BitChord"
+
+        /** `getAlbumList2` ordering: A-Z by album name. */
+        const val ALBUMS_BY_NAME = "alphabeticalByName"
 
         private val defaultClient: OkHttpClient by lazy {
             Http.client.newBuilder()

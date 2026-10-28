@@ -178,6 +178,7 @@ import com.music.bitchord.ui.screens.NavidromeAlbumScreen
 import com.music.bitchord.ui.screens.NavidromeArtistScreen
 import com.music.bitchord.ui.screens.NavidromeEditorAlert
 import com.music.bitchord.ui.screens.NavidromeLibraryScreen
+import com.music.bitchord.ui.screens.NavidromePlaylistScreen
 import com.music.bitchord.ui.screens.SourceEditorAlert
 import com.music.bitchord.ui.screens.SourcesScreen
 import com.music.bitchord.data.sources.TrackMatcher
@@ -2810,6 +2811,11 @@ private fun BitChordApp(
                                         AppRoute.NavidromeAlbum(pageRoute.configId, it.id, it.title, it.artist, it.artworkRef),
                                     )
                                 },
+                                onOpenPlaylist = {
+                                    navigator.push(
+                                        AppRoute.NavidromePlaylist(pageRoute.configId, it.id, it.name, it.artworkRef),
+                                    )
+                                },
                                 contentPadding = listPadding,
                             )
                         } else if (pageRoute is AppRoute.NavidromeArtist) {
@@ -2837,6 +2843,26 @@ private fun BitChordApp(
                                         songs,
                                         index,
                                         QueueSource(pageRoute.title, PlaybackSourceType.BROWSE, "navidrome:${pageRoute.configId}:${pageRoute.albumId}"),
+                                    )
+                                },
+                                onSongLongPress = openSongMenu,
+                                onSongSwipe = onSongSwipe,
+                                contentPadding = listPadding,
+                                currentSong = player.song,
+                                isPlaying = player.isPlaying,
+                            )
+                        } else if (pageRoute is AppRoute.NavidromePlaylist) {
+                            NavidromePlaylistScreen(
+                                barsHeight = { floatingBarsHeight.intValue },
+                                configId = pageRoute.configId,
+                                playlistId = pageRoute.playlistId,
+                                name = pageRoute.name,
+                                artworkRef = pageRoute.artworkRef,
+                                onPlay = { songs, index ->
+                                    playFrom(
+                                        songs,
+                                        index,
+                                        QueueSource(pageRoute.name, PlaybackSourceType.BROWSE, "navidrome:${pageRoute.configId}:playlist:${pageRoute.playlistId}"),
                                     )
                                 },
                                 onSongLongPress = openSongMenu,
@@ -3475,6 +3501,7 @@ private fun BitChordApp(
                         is AppRoute.NavidromeLibrary -> route.serverName
                         is AppRoute.NavidromeArtist -> route.name
                         is AppRoute.NavidromeAlbum -> route.title
+                        is AppRoute.NavidromePlaylist -> route.name
                         AppRoute.ListenTogether -> stringResource(R.string.listen_together)
                         AppRoute.WearOs -> stringResource(R.string.wear_os_page_title)
                         AppRoute.Equalizer -> stringResource(R.string.equalizer)

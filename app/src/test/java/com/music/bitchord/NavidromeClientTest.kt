@@ -375,4 +375,71 @@ class NavidromeClientTest {
         assertTrue("took ${seconds}s", seconds < 10)
         assertTrue(failure is NavidromeException.Network)
     }
+
+    // ── Playlists ─────────────────────────────────────────────────────────
+
+    @Test
+    fun `playlists are listed in the server's order without blank ids`() = runTest {
+        server.enqueue(
+            ok(
+                """"playlists":{"playlist":[
+                  {"id":"p2","name":"Second","songCount":3,"duration":600,"coverArt":"pl-2"},
+                  {"id":"","name":"No id"},
+                  {"id":"p1","name":"First"}
+                ]}""",
+            ),
+        )
+        val playlists = client().listPlaylists().getOrThrow()
+        assertEquals(listOf("p2", "p1"), playlists.map { it.id })
+        assertEquals(3, playlists[0].songCount)
+        assertEquals("pl-2", playlists[0].coverArt)
+        assertNull(playlists[1].songCount)
+        assertEquals("/rest/getPlaylists", server.takeRequest().requestUrl!!.encodedPath)
+    }
+
+    @Test
+    fun `an account with no playlists gets an empty list`() = runTest {
+        server.enqueue(ok("\"playlists\":{}"))
+        server.enqueue(ok("\"x\":1"))
+        assertTrue(client().listPlaylists().getOrThrow().isEmpty())
+        assertTrue(client().listPlaylists().getOrThrow().isEmpty())
+    }
+
+    @Test
+    fun `playlist tracks keep the server's order and are not re-sorted`() = runTest {
+        server.enqueue(
+            ok(
+                """"playlist":{"id":"p1","name":"Mix","entry":[
+                  {"id":"9","title":"Late","track":1,"discNumber":2},
+                  {"id":"","title":"No id"},
+                  {"id":"4","title":"Early","track":7,"discNumber":1},
+                  {"id":"6","title":"Plain"}
+                ]}""",
+            ),
+        )
+        val songs = client().playlistSongs("p1").getOrThrow()
+        assertEquals(listOf("9", "4", "6"), songs.map { it.id })
+        val url = server.takeRequest().requestUrl!!
+        assertEquals("/rest/getPlaylist", url.encodedPath)
+        assertEquals("p1", url.queryParameter("id"))
+    }
+
+    @Test
+    fun `an empty playlist is an empty list`() = runTest {
+        server.enqueue(ok("\"playlist\":{\"id\":\"p1\",\"name\":\"Empty\"}"))
+        assertTrue(client().playlistSongs("p1").getOrThrow().isEmpty())
+    }
+
+    @Test
+    fun `a deleted playlist is not found`() = runTest {
+        server.enqueue(failed(70))
+        assertTrue(client().playlistSongs("gone").exceptionOrNull() is NavidromeException.NotFound)
+    }
+
+    @Test
+    fun `a playlist call with the server down is a network failure`() = runTest {
+        val dead = client()
+        server.shutdown()
+        assertTrue(dead.listPlaylists().exceptionOrNull() is NavidromeException.Network)
+    }
 }

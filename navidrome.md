@@ -339,6 +339,19 @@ Scope each separately with its own design and tests:
 - Advanced search: filters, paging, and richer result categories.
 - Server capability detection: use documented capability/version behavior rather than guessing from URL.
 
+#### 4.1 Playlists (read-only): design
+
+Status: implemented on branch `navidrome-playlists`. Read-only: no create, rename, add or remove, and no write-back to the server. Local results: `./gradlew testDevDebugUnitTest` BUILD SUCCESSFUL (1,245 tests in the suite, 0 failures, 0 errors, 16 skipped: the opt-in live tests, which were not run); `assembleDevDebug` BUILD SUCCESSFUL. Not run: the emulator or a device, and the live server. The queue label and the route title are not unit-tested.
+
+- **API.** `getPlaylists` (no parameters, so the playlists this login can see) returns `playlists.playlist[]` with `id`, `name`, `songCount`, `duration`, `coverArt`. `getPlaylist?id=` returns `playlist.entry[]`, the tracks in the server's order. Both are read-only Subsonic methods already covered by the existing token authentication. A playlist that has been deleted comes back as error 70 and maps to `NotFound`.
+- **Mapping.** A playlist maps to `LibraryPlaylist(id, name, trackCount, artworkRef)`, a sibling of `LibraryAlbum`. Its tracks map through the same `toSong` as album tracks, so each track keeps the `<configId>|<trackId>` identity and resolves through this server. Playlist order is kept as the server gives it; album disc/track sorting does not apply.
+- **Interface.** `playlists()` and `playlistTracks(id)` are added to the optional `BrowsableMusicLibrary`. Only `NavidromeSource` implements it, so no other source gets a stub.
+- **UI entry point.** The existing "Server libraries" flow gains a third segment, Playlists, beside Artists and Albums. Each playlist opens a track page with the album page's layout (Play, Shuffle, tracks in order) through a new `AppRoute.NavidromePlaylist`, so the page is shared code rather than a copy.
+- **States.** Loading skeletons; "Nothing here yet" for an empty listing or an empty playlist; errors with Try Again; the server is disabled or removed, which shows the same unavailable message as the other browse screens. Playback of a playlist uses the same queue path as an album, labelled with the playlist name.
+- **Isolation.** The route carries the config id, so a playlist is only ever read from the server it was listed from. Playlist ids are opaque and are never sent to another server. Tracks keep their config-scoped identity, so the same track id on two servers stays two tracks. The queue's source label holds the config id and playlist id, as album queues already do; it holds no URL or credential.
+- **No new strings.** Reuses `playlists`, `navidrome_empty`, `navidrome_unavailable` and the error strings, so the 18 locales need no change.
+- **Tests.** Client parsing of both responses (including malformed and missing fields, and the order kept); source mapping and isolation across two servers with the same ids; the route and queue label; empty and error results.
+
 ## 6. Test plan
 
 Use the repository's established framework. Prefer a mocked HTTP engine or local test server. Unit tests must not require a live Navidrome server or real credentials.

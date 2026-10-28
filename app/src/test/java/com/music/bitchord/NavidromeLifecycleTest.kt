@@ -1,6 +1,8 @@
 package com.music.bitchord
 
 import android.content.SharedPreferences
+import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
@@ -70,6 +72,41 @@ class NavidromeLifecycleTest {
         """{"subsonic-response":{"status":"ok","version":"1.16.1","searchResult3":{"song":[
           {"id":"$id","title":"Song","artist":"Artist","duration":125,"suffix":"flac"}]}}}""",
     )
+
+    // ── Streaming quality ─────────────────────────────────────────────────
+
+    /**
+     * Found on an emulator: below Lossless the ceiling filtered Navidrome out of
+     * the playback sources, and because a Navidrome track is never answered by
+     * another source, every track from the server failed with "No enabled source
+     * could serve …". The server can transcode, so it has to stay in.
+     */
+    @Test
+    fun `a Navidrome track still resolves under every ceiling below Lossless`() = runBlocking {
+        add(a, "srv-a")
+        a.enqueue(found("42"))
+        val cellular = AppSettings.audioQualityCellular.value
+        val metered = AppSettings.meteredConnection.value
+        try {
+            AppSettings.meteredConnection.value = true
+            for (quality in listOf(AudioQuality.HIGH, AudioQuality.MEDIUM, AudioQuality.LOW)) {
+                AppSettings.audioQualityCellular.value = quality
+                val stream = SourceResolver.resolve("srv-a", "42", target)
+                assertNotNull("$quality: the track must still resolve", stream)
+                val url = stream!!.url.toHttpUrl()
+                if (quality.maxKbps == Int.MAX_VALUE) {
+                    // No cap asked for, so the original file.
+                    assertEquals("$quality", "raw", url.queryParameter("format"))
+                } else {
+                    // A cap: the server transcodes to it.
+                    assertEquals("$quality", quality.maxKbps.toString(), url.queryParameter("maxBitRate"))
+                }
+            }
+        } finally {
+            AppSettings.audioQualityCellular.value = cellular
+            AppSettings.meteredConnection.value = metered
+        }
+    }
 
     // ── Tracks stay with their own server ─────────────────────────────────
 

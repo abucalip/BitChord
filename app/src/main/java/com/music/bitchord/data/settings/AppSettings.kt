@@ -34,8 +34,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
  * [SourceKind.YOUTUBE] is permitted on every rung: it is what [maxKbps]
  * caps, and it is the only source that can answer at all when the ones
  * above it are skipped.
+ *
+ * [SourceKind.NAVIDROME] is permitted on every rung too. It is the user's own
+ * server, so there is no catalogue walk to avoid, and unlike the sources the
+ * rungs below Lossless skip it can serve a cap itself: the server transcodes
+ * to `maxBitRate`. A track from it is never answered by another source (see
+ * `SourceResolver.resolve`), so skipping it here did not fall back to
+ * anything — every Navidrome track simply failed to play below Lossless.
  */
-fun AudioQuality.permits(kind: SourceKind): Boolean = when (this) {
+fun AudioQuality.permits(kind: SourceKind): Boolean = kind == SourceKind.NAVIDROME || when (this) {
     AudioQuality.LOSSLESS -> true
     // No lossless answer is wanted here, and a source that can serve one is
     // the slow half of the list: an addon fronting several catalogues walks

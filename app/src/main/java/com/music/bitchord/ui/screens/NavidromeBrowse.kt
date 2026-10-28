@@ -415,6 +415,8 @@ private fun Cover(
     modifier: Modifier,
     iconSize: androidx.compose.ui.unit.Dp,
     circular: Boolean,
+    /** Set only where the image is not already read out as part of a row's label. */
+    description: String? = null,
 ) {
     val shape = if (circular) RoundedCornerShape(percent = 50) else RoundedCornerShape(6.dp)
     Box(
@@ -432,7 +434,7 @@ private fun Cover(
         if (art != null) {
             AsyncImage(
                 model = art,
-                contentDescription = null,
+                contentDescription = description,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -462,6 +464,8 @@ private fun AlbumHeader(
             Modifier.fillMaxWidth(0.7f).widthIn(max = 220.dp).aspectRatio(1f),
             48.dp,
             circular = false,
+            // Not inside a clickable row, so nothing else reads the album out.
+            description = title,
         )
         Spacer(Modifier.size(12.dp))
         Text(

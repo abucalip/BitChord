@@ -24,6 +24,9 @@
 - Shipping playlists, favorites, ratings, scrobbling, offline playback, or transcoding controls in the first PR.
 - Claiming lossless or bit-perfect playback solely from a source capability flag.
 - Requiring server-side modifications.
+- Supporting the TV, Wear OS, or web clients. Scope is the phone app (`app`) only. Other modules must still compile if they consume shared code touched by this work (see Phase 0), but they get no Navidrome UI or behavior.
+- Custom CA trust, self-signed certificate handling, or certificate pinning in the first milestone (revisit in Phase 3).
+- Routing Navidrome traffic through the `backend` module; the phone app talks to the server directly, which is required for LAN servers.
 
 ## 2. Existing architecture and integration points
 
@@ -37,6 +40,8 @@ The targeted audit identified these areas; re-check them on the current target b
 - `app/src/main/java/com/music/bitchord/auth/AuthStore.kt` and `EncryptedPrefs.kt` — existing credential-storage infrastructure; verify per-source keying, cleanup, migration, and backup behavior.
 - `app/src/main/java/com/music/bitchord/ui/screens/SourcesScreen.kt` — source-management UI; add a dedicated Navidrome editor rather than reusing the addon editor.
 - `shared/src/commonMain/kotlin/com/music/bitchord/data/model/Models.kt` — shared song model; map metadata into existing fields first.
+
+Scope is the phone app only. `shared` is touched only as needed for `SourceKind`/models and must keep the other modules compiling.
 
 The project already uses Ktor, kotlinx.serialization, Media3/ExoPlayer, and an OkHttp-backed playback data source. Reuse existing dependencies and conventions unless testing demonstrates a gap.
 
@@ -84,19 +89,22 @@ The editor should accept a base URL, username, password, and optional display la
 
 - Normalize URLs consistently and support reverse-proxy path prefixes; do not assume the server is hosted at `/`.
 - Accept HTTPS by default. Permit HTTP only for explicitly configured trusted local environments when needed; never silently downgrade HTTPS.
+- Android blocks cleartext traffic by default. Decide in Phase 0 how HTTP is allowed (network security config scoped to private/local hosts, or a per-server opt-in with a visible warning) and implement it explicitly; otherwise LAN servers will fail to connect.
+- Self-signed certificates: TLS failures surface as a distinct, actionable error. Custom CA or pinning support is a non-goal for the first milestone.
 - Reject malformed URLs and unsupported schemes with actionable, non-secret messages.
 - Never put a password in the base URL.
 - Support multiple independent server configurations.
 
 ### Subsonic-compatible authentication
 
-Use the Navidrome-supported Subsonic-compatible API and current documented authentication mechanism. For token authentication, calculate the request token according to the API specification using the password and a fresh cryptographically random salt for each request.
+Use the Navidrome-supported Subsonic-compatible API. **Primary mode: token + salt (`u`, `t`, `s`)**, with `f=json` and a fixed client name (`c`) and API version (`v`). Confirm against current docs whether Navidrome's newer API-key authentication is worth supporting as an alternative; if so, make it an explicit per-server choice, not a fallback. Note that token auth means the server holds the plaintext password, so the app should recommend a dedicated account. For token authentication, calculate the request token according to the API specification using the password and a fresh cryptographically random salt for each request.
 
 - Keep password, token, and salt handling inside the API/auth layer.
 - Never log credentials, tokens, salts, or URLs containing authentication parameters.
 - Redact sensitive query parameters from errors and diagnostics.
 - Use HTTPS over untrusted networks.
 - Never persist reusable authentication tokens in media URLs or track identities.
+- **Stream auth approach (decide in Phase 0).** Subsonic has no header-based auth, so `stream` and cover-art requests carry credentials as query parameters. Persistent track URIs hold only the source ID and opaque track ID. Credentials are added at resolve time (or by an OkHttp interceptor in the playback data source) with a fresh salt per request, so Media3 retries and seeks never reuse a stale or persisted token. Resolved URLs must never be logged or stored in queue/history state.
 - Confirm supported API versions and response formats during connection testing.
 - If legacy authentication is necessary, document the security trade-off and do not silently fall back to a weaker mode.
 
@@ -123,8 +131,11 @@ Provide useful error categories for invalid URL, network failure, TLS failure, a
 1. Read current source, registry, resolver, playback, auth, UI, and test code.
 2. Read repository-specific instructions and identify required CI/build commands.
 3. Trace how source track IDs become source URIs and resolve to `SourceStream`.
-4. Verify how `SourceStream` headers, MIME type, and audio metadata reach the playback data source.
+4. Verify how `SourceStream` URL, headers, MIME type, and audio metadata reach the playback data source, and choose the stream-auth approach described in Section 4.
 5. Confirm current HTTP-client, coroutine, serialization, error, and test conventions.
+   - Decide the cleartext-HTTP policy (Section 4) and check how `SourceKind` priorities rank Navidrome against existing sources, including fallback behavior when a user's own library has a match.
+   - Check whether the app has a settings export or backup and what it includes.
+   - Audit other modules (`sharedUi`, `tv`, `wearos`, `web`, `native`) only for compile breakage from adding `SourceKind.NAVIDROME` or changing shared code (for example exhaustive `when` expressions). Do not add Navidrome features there.
 6. Establish baseline tests/build results before making changes.
 
 **Acceptance:** Implementation is based on current contracts; existing source behavior is understood; any playback pipeline change is justified by a failing test or a documented compatibility gap.
@@ -135,10 +146,10 @@ Provide useful error categories for invalid URL, network failure, TLS failure, a
 2. Add a typed API client with centralized authentication and URL construction.
 3. Implement connection testing using the Subsonic-compatible ping endpoint.
 4. Implement `NavidromeSource.health()` and map errors to meaningful states.
-5. Implement search using the appropriate Subsonic search endpoint.
+5. Implement search using `search3` (ID3-based, paginated via `songCount`/`songOffset`), requesting songs only in this phase.
 6. Map title, artist, album, duration, track number, and available artwork metadata to existing song fields.
 7. Implement stream resolution through the server's stream endpoint, scoped to the configured server.
-8. Preserve required request headers through the existing playback pipeline. Modify `PlaybackService` only if a test proves the current path insufficient.
+8. Apply authentication to stream requests using the approach chosen in Phase 0. Modify `PlaybackService` only if a test proves the current path insufficient. Use server defaults for format and bitrate, and verify seeking works (consider `estimateContentLength`).
 9. Store credentials securely per source.
 10. Add a dedicated add/edit Navidrome flow in the source-management screen, including connection test, enable/disable, and delete.
 11. Add deterministic tests for authentication, parsing, mapping, error cases, and source isolation.
@@ -219,7 +230,8 @@ Use the repository's established framework. Prefer a mocked HTTP engine or local
 
 ### Playback integration
 
-- Stream resolution produces the expected server URL and headers.
+- Stream resolution produces the expected server URL with a fresh salt per request, and persisted track URIs contain no credentials.
+- Cleartext HTTP is allowed or rejected per the chosen policy; TLS failures map to the distinct error.
 - Authentication is provided using the API's required mechanism, not embedded in persistent media identity.
 - Existing Media3 data-source handling accepts the stream.
 - Queue playback, track switching, and failure recovery work.
@@ -285,6 +297,7 @@ During implementation, confirm endpoint names, authentication requirements, resp
 - [ ] Errors are useful, safe, and recoverable.
 - [ ] Automated tests cover authentication, parsing, mapping, source identity, and stream resolution.
 - [ ] Existing sources and playback behavior pass regression tests.
+- [ ] Other modules still compile after shared changes (no new features there).
 - [ ] Required CI/build checks pass on the exact PR head SHA.
 - [ ] Any waived or unperformed manual testing is reported honestly.
 - [ ] PR description records scope, tests, limitations, and follow-up work.

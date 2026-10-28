@@ -201,9 +201,10 @@ class NavidromeSource(
         val url = client.streamUrl(trackId, capKbps).getOrNull() ?: return null
         val row = synchronized(rows) { rows[trackId] }
         val format = if (capKbps != null) {
-            // The server transcodes; what it picks is its own business, so the
-            // cap is the only thing known about the result.
-            StreamFormat(kbps = capKbps, kbpsInferred = true)
+            // The server transcodes and picks the codec itself, so it is read from
+            // what the stream says it is (one header request, no audio fetched).
+            // The bitrate is the cap, which is all that is known about it.
+            StreamFormat(codec = client.transcodedCodec(url), kbps = capKbps, kbpsInferred = true)
         } else {
             StreamFormat(
                 codec = row?.suffix?.lowercase(Locale.ROOT),

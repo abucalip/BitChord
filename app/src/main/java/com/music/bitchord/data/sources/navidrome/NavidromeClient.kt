@@ -14,6 +14,7 @@ import java.io.IOException
 import java.net.SocketTimeoutException
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLException
 
@@ -160,6 +161,23 @@ class NavidromeClient(
             .toString()
     }
 
+    /**
+     * The codec a transcoded stream comes back in, read from its Content-Type.
+     *
+     * Only the response headers are read: the request asks for one byte and the
+     * connection is dropped at once, so no audio is fetched. Null when the server
+     * does not say, or the check cannot be completed; the caller then reports the
+     * codec as unknown rather than guessing it from the cap.
+     */
+    suspend fun transcodedCodec(streamUrl: String): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val request = Request.Builder().url(streamUrl).header("Range", "bytes=0-0").build()
+            checkClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) codecFromContentType(response.header("Content-Type")) else null
+            }
+        }.getOrNull()
+    }
+
     // ── Plumbing ──────────────────────────────────────────────────────────
 
     private fun endpoint(name: String): HttpUrl? =
@@ -298,6 +316,18 @@ class NavidromeClient(
 }
 
 /** Why a Navidrome call failed, in terms the UI can explain without secrets. */
+/** The codec a Content-Type names for audio, or null when it is not one this app labels. */
+internal fun codecFromContentType(contentType: String?): String? =
+    when (contentType?.substringBefore(';')?.trim()?.lowercase(Locale.ROOT)) {
+        "audio/mpeg", "audio/mp3" -> "mp3"
+        "audio/aac", "audio/aacp", "audio/mp4", "audio/x-m4a" -> "aac"
+        "audio/ogg" -> "ogg"
+        "audio/opus" -> "opus"
+        "audio/flac", "audio/x-flac" -> "flac"
+        "audio/wav", "audio/x-wav", "audio/wave" -> "wav"
+        else -> null
+    }
+
 sealed class NavidromeException(message: String) : Exception(message) {
     class InvalidUrl : NavidromeException("That is not a valid http or https address")
     class Network(message: String, val timedOut: Boolean = false) : NavidromeException(message)

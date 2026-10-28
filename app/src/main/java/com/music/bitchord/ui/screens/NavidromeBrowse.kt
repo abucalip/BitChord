@@ -39,6 +39,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -74,6 +76,53 @@ private const val PAGE = 50
 
 /** How many rows from the end of the list the next batch is asked for. */
 private const val PREFETCH = 8
+
+/**
+ * Albums kept in saved state. A font-scale change recreates the Activity (only
+ * orientation and size are handled in place), and the loaded albums are the
+ * part that is otherwise lost; the scroll position is restored against them.
+ * Capped so a very large library never has to fit in a saved-state bundle.
+ */
+private const val SAVED_ALBUMS = 200
+
+private fun LibraryPage<LibraryAlbum>.capped(): LibraryPage<LibraryAlbum> =
+    if (items.size <= SAVED_ALBUMS) this else LibraryPage(items.take(SAVED_ALBUMS), SAVED_ALBUMS)
+
+/** Flat, bundle-safe form of an album page: the next offset, then seven fields per album. */
+internal val albumPageSaver: Saver<LibraryPage<LibraryAlbum>, Any> = listSaver(
+    save = { page ->
+        buildList {
+            add(page.nextOffset ?: -1)
+            page.items.forEach { a ->
+                add(a.id)
+                add(a.title)
+                add(a.artist)
+                add(a.artistId.orEmpty())
+                add(a.year ?: -1)
+                add(a.trackCount ?: -1)
+                add(a.artworkRef.orEmpty())
+            }
+        }
+    },
+    restore = { saved ->
+        runCatching {
+            LibraryPage(
+                items = saved.drop(1).chunked(7).map { f ->
+                    LibraryAlbum(
+                        id = f[0] as String,
+                        title = f[1] as String,
+                        artist = f[2] as String,
+                        artistId = (f[3] as String).ifEmpty { null },
+                        year = (f[4] as Int).takeIf { it >= 0 },
+                        trackCount = (f[5] as Int).takeIf { it >= 0 },
+                        artworkRef = (f[6] as String).ifEmpty { null },
+                    )
+                },
+                nextOffset = (saved[0] as Int).takeIf { it >= 0 },
+            )
+        }.getOrNull()
+    },
+)
 
 /**
  * The browsing contract of the server named by [configId], or null when it is
@@ -127,7 +176,15 @@ internal fun NavidromeLibraryScreen(
                 }
         }
     }
-    val albums = remember(library) { PagedList<LibraryAlbum> { offset -> library.albums(offset, PAGE) } }
+    var albumPage by rememberSaveable(configId, stateSaver = albumPageSaver) {
+        mutableStateOf(LibraryPage<LibraryAlbum>(emptyList(), 0))
+    }
+    val albums = remember(library) {
+        PagedList(restored = albumPage.takeIf { it.items.isNotEmpty() }) { offset -> library.albums(offset, PAGE) }
+    }
+    LaunchedEffect(albums) {
+        snapshotFlow { albums.items }.collect { albumPage = albums.snapshot().capped() }
+    }
     val current = if (tab == 0) artists else albums
 
     // Starts the visible list, then extends it whenever the end comes near.

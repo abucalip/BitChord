@@ -174,6 +174,24 @@ object SourceResolver {
         // newly matched tracks and source-backed rows queued earlier.
         val pinned = active.firstOrNull { it.configId == configId }
 
+        // A track from the listener's own Navidrome server is that server's or
+        // nobody's, and this is decided before any substitution path below.
+        // Off means off; a server that cannot serve the track means it is
+        // skipped. Answering with another source's copy of "the same song" —
+        // including a lossless upgrade from a different server — would be a
+        // silent substitution of something the listener chose from their own
+        // collection, the same reasoning as a row picked from an addon (see
+        // [MIX_PARAM]). Only a source still configured as Navidrome is
+        // covered; one that has been deleted or re-pointed is re-matched by
+        // title and artist like any other removed source, never by id.
+        if (SourceRegistry.config(configId)?.kind == SourceKind.NAVIDROME) {
+            val stream = pinned?.let { attempt(it) { it.stream(trackId, request) } }
+            if (stream == null) {
+                TrackLog.d(TAG, "'${target.title}' belongs to a Navidrome server that could not serve it; not substituting")
+            }
+            return stream?.copy(sourceConfigId = configId)
+        }
+
         // The upgrade path: with lossless asked for and the pinned source
         // unable to serve it, anything ranked above it that can is worth
         // asking first. This is the whole reason the list is ordered — it is

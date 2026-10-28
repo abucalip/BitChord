@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -45,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -319,12 +322,12 @@ private fun BrowseRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(role = Role.Button, onClick = onClick)
             .heightIn(min = 64.dp)
             .padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Cover(art, placeholder, 48, circular)
+        Cover(art, placeholder, Modifier.size(48.dp), 24.dp, circular)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
@@ -352,13 +355,13 @@ private fun BrowseRow(
 private fun Cover(
     art: NavidromeArt?,
     placeholder: androidx.compose.ui.graphics.vector.ImageVector,
-    sizeDp: Int,
+    modifier: Modifier,
+    iconSize: androidx.compose.ui.unit.Dp,
     circular: Boolean,
 ) {
     val shape = if (circular) RoundedCornerShape(percent = 50) else RoundedCornerShape(6.dp)
     Box(
-        modifier = Modifier
-            .size(sizeDp.dp)
+        modifier = modifier
             .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
@@ -367,7 +370,7 @@ private fun Cover(
             imageVector = placeholder,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size((sizeDp / 2).dp),
+            modifier = Modifier.size(iconSize),
         )
         if (art != null) {
             AsyncImage(
@@ -395,7 +398,14 @@ private fun AlbumHeader(
             .padding(horizontal = PAGE_GUTTER, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Cover(art, Icons.Rounded.Album, 220, circular = false)
+        // Up to 220dp, but never wider than the screen allows: 70% of the width on a narrow phone.
+        Cover(
+            art,
+            Icons.Rounded.Album,
+            Modifier.fillMaxWidth(0.7f).widthIn(max = 220.dp).aspectRatio(1f),
+            48.dp,
+            circular = false,
+        )
         Spacer(Modifier.size(12.dp))
         Text(
             text = title,

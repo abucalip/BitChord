@@ -9,7 +9,6 @@ import coil3.fetch.SourceFetchResult
 import coil3.key.Keyer
 import coil3.request.Options
 import com.music.bitchord.data.Http
-import com.music.bitchord.data.sources.BrowsableMusicLibrary
 import com.music.bitchord.data.sources.SourceRegistry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -41,7 +40,7 @@ class NavidromeArtKeyer : Keyer<NavidromeArt> {
 class NavidromeArtFetcher private constructor(private val art: NavidromeArt) : Fetcher {
 
     override suspend fun fetch(): FetchResult? = withContext(Dispatchers.IO) {
-        val library = SourceRegistry.instance(art.configId) as? BrowsableMusicLibrary ?: return@withContext null
+        val library = SourceRegistry.browsable(art.configId) ?: return@withContext null
         val url = library.artworkUrl(art.ref, art.sizePx) ?: return@withContext null
         val response = Http.client.newCall(Request.Builder().url(url).build()).execute()
         // Closed by Coil with the ImageSource; failures close here.

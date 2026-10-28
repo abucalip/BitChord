@@ -2,6 +2,7 @@ package com.music.bitchord.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,10 +72,20 @@ private const val PAGE = 50
 /** How many rows from the end of the list the next batch is asked for. */
 private const val PREFETCH = 8
 
-/** The browsing contract of the server named by [configId], or null when it is gone, disabled or not browsable. */
+/**
+ * The browsing contract of the server named by [configId], or null when it is
+ * gone, disabled or not browsable.
+ *
+ * Re-read when the source list changes, so a server removed, disabled or
+ * edited while its pages are open is noticed instead of browsed from a stale
+ * instance. An untouched source keeps its instance, so the paging state keyed
+ * on it survives unrelated changes.
+ */
 @Composable
-private fun rememberLibrary(configId: String): BrowsableMusicLibrary? =
-    remember(configId) { SourceRegistry.instance(configId) as? BrowsableMusicLibrary }
+private fun rememberLibrary(configId: String): BrowsableMusicLibrary? {
+    val configs by SourceRegistry.configs.collectAsStateWithLifecycle()
+    return remember(configs, configId) { SourceRegistry.browsable(configId) }
+}
 
 /**
  * A Navidrome server's library: Artists and Albums.

@@ -143,3 +143,45 @@ class NavidromeBrowseTest {
         )
     }
 }
+
+class NavidromeBrowsableTest {
+
+    private val config = com.music.bitchord.data.sources.SourceConfig(
+        id = "browsable-test",
+        kind = com.music.bitchord.data.sources.SourceKind.NAVIDROME,
+        baseUrl = "https://nav.example.com",
+    )
+
+    @org.junit.After
+    fun cleanUp() = com.music.bitchord.data.sources.SourceRegistry.remove(config.id)
+
+    @Test
+    fun `an enabled server is browsable and a disabled or removed one is not`() {
+        val registry = com.music.bitchord.data.sources.SourceRegistry
+        assertNull(registry.browsable(config.id))
+
+        registry.add(config)
+        assertTrue(registry.browsable(config.id) != null)
+
+        registry.setEnabled(config.id, false)
+        assertNull("a disabled server must not be contacted", registry.browsable(config.id))
+
+        registry.setEnabled(config.id, true)
+        assertTrue(registry.browsable(config.id) != null)
+
+        registry.remove(config.id)
+        assertNull(registry.browsable(config.id))
+    }
+
+    @Test
+    fun `an unbrowsable kind is never returned`() {
+        val registry = com.music.bitchord.data.sources.SourceRegistry
+        val addon = com.music.bitchord.data.sources.SourceConfig(
+            id = "browsable-test",
+            kind = com.music.bitchord.data.sources.SourceKind.ADDON,
+            baseUrl = "https://addon.example.com/token",
+        )
+        registry.add(addon)
+        assertNull(registry.browsable(addon.id))
+    }
+}

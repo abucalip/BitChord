@@ -293,6 +293,12 @@ fun SourcesScreen(
             AddSourceRow(
                 onClick = { onEditSource(SourceConfig(kind = SourceKind.ADDON)) },
             )
+            RowDivider()
+            AddSourceRow(
+                onClick = { onEditSource(SourceConfig(kind = SourceKind.NAVIDROME)) },
+                title = stringResource(R.string.add_navidrome),
+                detail = stringResource(R.string.add_navidrome_detail),
+            )
         }
 
         // A personal library rather than a catalogue in the order above: it
@@ -629,7 +635,11 @@ private const val SWAP_THRESHOLD = 0.6f
  * put another one in here".
  */
 @Composable
-private fun AddSourceRow(onClick: () -> Unit) {
+private fun AddSourceRow(
+    onClick: () -> Unit,
+    title: String = stringResource(R.string.add_addon),
+    detail: String = stringResource(R.string.add_addon_detail),
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -650,12 +660,12 @@ private fun AddSourceRow(onClick: () -> Unit) {
         Spacer(Modifier.width(ICON_GAP))
         Column(Modifier.weight(1f)) {
             Text(
-                text = stringResource(R.string.add_addon),
+                text = title,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.primary,
             )
             Text(
-                text = stringResource(R.string.add_addon_detail),
+                text = detail,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
@@ -791,6 +801,7 @@ private fun SourceRow(
         Icon(
             imageVector = when (config.kind) {
                 SourceKind.ADDON -> Icons.Rounded.Extension
+                SourceKind.NAVIDROME -> Icons.Rounded.Dns
                 SourceKind.CUSTOM_MODULE -> Icons.Rounded.Extension
                 SourceKind.MODULE -> Icons.Rounded.Extension
                 SourceKind.JIOSAAVN -> Icons.Rounded.GraphicEq // or some other icon

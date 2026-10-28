@@ -32,6 +32,17 @@ internal object EncryptedPrefs {
     /** One store per file per process; every failed open was a Keystore round trip. */
     private val opened = HashMap<String, SharedPreferences>()
 
+    /** Names whose store really is encrypted, as opposed to the plain fallback. */
+    private val encryptedNames = HashSet<String>()
+
+    /**
+     * Whether the store opened under [name] is encrypted at rest. False after
+     * a fallback to the plain file, which callers holding a password should
+     * treat as "do not store this here".
+     */
+    @Synchronized
+    fun isEncrypted(name: String): Boolean = name in encryptedNames
+
     @Synchronized
     fun open(context: Context, name: String, plainName: String): SharedPreferences =
         opened.getOrPut(name) { resolve(context.applicationContext, name, plainName) }
@@ -56,6 +67,7 @@ internal object EncryptedPrefs {
             }
         }
         moveIn(context, plainName, encrypted, name)
+        encryptedNames += name
         return encrypted
     }
 

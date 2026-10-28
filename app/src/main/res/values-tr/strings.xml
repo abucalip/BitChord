@@ -1328,4 +1328,13 @@
     <string name="wear_os_code_hint">Eşleme kodu</string>
     <string name="wear_os_done">Bitti</string>
     <string name="signed_by">%1$s tarafından imzalandı</string>
+    <string name="add_navidrome">Navidrome sunucusu ekle</string>
+    <string name="add_navidrome_detail">Kendi Navidrome kitaplığınızda arayın ve çalın</string>
+    <string name="navidrome_description">Sunucunuzun adresini ve kullanılacak hesabı girin. Parolanız bu cihazda şifrelenmiş olarak saklanır ve hiçbir zaman düz metin olarak gönderilmez.</string>
+    <string name="navidrome_http_warning">Bu adres şifrelenmemiştir. Oturum açma belirtecinizi ve müziğinizi ağdaki herkes görebilir. http:// adresini yalnızca güvendiğiniz bir ağda kullanın.</string>
+    <string name="navidrome_password_unchanged">Parola (korumak için boş bırakın)</string>
+    <string name="navidrome_name_optional">Ad (isteğe bağlı)</string>
+    <string name="navidrome_invalid_url">Bu geçerli bir http veya https adresi değil</string>
+    <string name="navidrome_password_required">Hesap parolasını girin</string>
+    <string name="navidrome_secure_storage_unavailable">Bu cihazda güvenli depolama kullanılamıyor, bu nedenle parola kaydedilmedi</string>
 </resources>

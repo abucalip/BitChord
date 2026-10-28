@@ -1372,4 +1372,13 @@
     <string name="song_info_unavailable">Non disponible</string>
     <string name="song_info_error">Certaines informations n’ont pas pu être chargées.</string>
     <string name="song_info_retry">Réessayer</string>
+    <string name="add_navidrome">Ajouter un serveur Navidrome</string>
+    <string name="add_navidrome_detail">Recherchez et écoutez votre propre bibliothèque Navidrome</string>
+    <string name="navidrome_description">Saisissez l’adresse de votre serveur et le compte à utiliser. Votre mot de passe est stocké chiffré sur cet appareil et n’est jamais envoyé en clair.</string>
+    <string name="navidrome_http_warning">Cette adresse n’est pas chiffrée. Votre jeton de connexion et votre musique peuvent être vus par toute personne sur le réseau. N’utilisez http:// que sur un réseau de confiance.</string>
+    <string name="navidrome_password_unchanged">Mot de passe (laisser vide pour le conserver)</string>
+    <string name="navidrome_name_optional">Nom (facultatif)</string>
+    <string name="navidrome_invalid_url">Ce n’est pas une adresse http ou https valide</string>
+    <string name="navidrome_password_required">Saisissez le mot de passe du compte</string>
+    <string name="navidrome_secure_storage_unavailable">Le stockage sécurisé n’est pas disponible sur cet appareil, le mot de passe n’a donc pas été enregistré</string>
 </resources>

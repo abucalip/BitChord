@@ -1371,4 +1371,13 @@
     <string name="song_info_unavailable">उपलब्ध नहीं</string>
     <string name="song_info_error">कुछ जानकारी लोड नहीं हो सकी।</string>
     <string name="song_info_retry">फिर से कोशिश करें</string>
+    <string name="add_navidrome">Navidrome सर्वर जोड़ें</string>
+    <string name="add_navidrome_detail">अपनी खुद की Navidrome लाइब्रेरी खोजें और स्ट्रीम करें</string>
+    <string name="navidrome_description">अपने सर्वर का पता और उपयोग किया जाने वाला खाता दर्ज करें। आपका पासवर्ड इस डिवाइस पर एन्क्रिप्टेड रूप में सहेजा जाता है और कभी सादे टेक्स्ट में नहीं भेजा जाता।</string>
+    <string name="navidrome_http_warning">यह पता एन्क्रिप्टेड नहीं है। आपका लॉगिन टोकन और संगीत नेटवर्क पर मौजूद कोई भी देख सकता है। http:// का उपयोग केवल भरोसेमंद नेटवर्क पर करें।</string>
+    <string name="navidrome_password_unchanged">पासवर्ड (वही रखने के लिए खाली छोड़ें)</string>
+    <string name="navidrome_name_optional">नाम (वैकल्पिक)</string>
+    <string name="navidrome_invalid_url">यह मान्य http या https पता नहीं है</string>
+    <string name="navidrome_password_required">खाते का पासवर्ड दर्ज करें</string>
+    <string name="navidrome_secure_storage_unavailable">इस डिवाइस पर सुरक्षित स्टोरेज उपलब्ध नहीं है, इसलिए पासवर्ड सहेजा नहीं गया</string>
 </resources>

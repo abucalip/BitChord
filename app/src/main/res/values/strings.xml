@@ -401,6 +401,16 @@
     <string name="activity_playing">Playing</string>
     <string name="activity_watching">Watching</string>
     <string name="add_addon">Add an addon</string>
+    <string name="add_navidrome">Add a Navidrome server</string>
+    <string name="add_navidrome_detail">Search and stream your own Navidrome library</string>
+    <string name="navidrome_description">Enter your server’s address and the account to use. Your password is stored encrypted on this device and is never sent as plain text.</string>
+    <string name="navidrome_http_warning">This address is not encrypted. Your login token and music can be seen by anyone on the network. Only use http:// on a network you trust.</string>
+    <string name="navidrome_url_placeholder" translatable="false">https://music.example.com</string>
+    <string name="navidrome_password_unchanged">Password (leave blank to keep)</string>
+    <string name="navidrome_name_optional">Name (optional)</string>
+    <string name="navidrome_invalid_url">That is not a valid http or https address</string>
+    <string name="navidrome_password_required">Enter the account password</string>
+    <string name="navidrome_secure_storage_unavailable">Secure storage is unavailable on this device, so the password was not saved</string>
     <string name="add_addon_detail">Point BitChord at an addon server you host or were given a link to</string>
     <string name="add_to_queue">Add to queue</string>
     <string name="after_this_song">After this song</string>

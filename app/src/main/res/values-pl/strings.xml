@@ -1411,4 +1411,13 @@
     <string name="song_info_unavailable">Niedostępne</string>
     <string name="song_info_error">Nie udało się wczytać części informacji.</string>
     <string name="song_info_retry">Spróbuj ponownie</string>
+    <string name="add_navidrome">Dodaj serwer Navidrome</string>
+    <string name="add_navidrome_detail">Wyszukuj i odtwarzaj własną bibliotekę Navidrome</string>
+    <string name="navidrome_description">Wpisz adres swojego serwera i konto, którego chcesz użyć. Hasło jest przechowywane na tym urządzeniu w postaci zaszyfrowanej i nigdy nie jest wysyłane jawnym tekstem.</string>
+    <string name="navidrome_http_warning">Ten adres nie jest szyfrowany. Token logowania i muzykę może zobaczyć każdy w sieci. Używaj http:// tylko w zaufanej sieci.</string>
+    <string name="navidrome_password_unchanged">Hasło (zostaw puste, aby zachować)</string>
+    <string name="navidrome_name_optional">Nazwa (opcjonalnie)</string>
+    <string name="navidrome_invalid_url">To nie jest prawidłowy adres http ani https</string>
+    <string name="navidrome_password_required">Wpisz hasło do konta</string>
+    <string name="navidrome_secure_storage_unavailable">Bezpieczny magazyn jest niedostępny na tym urządzeniu, więc hasło nie zostało zapisane</string>
 </resources>

@@ -3,6 +3,7 @@ package com.music.bitchord.data.sources.navidrome
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.annotation.VisibleForTesting
+import androidx.core.content.edit
 import com.music.bitchord.auth.EncryptedPrefs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -78,7 +79,10 @@ object NavidromeCredentials {
     /** Removes the login for [configId]; safe to call before [init] or for an unknown id. */
     fun delete(configId: String) {
         val store = prefs ?: return
-        store.edit().remove("$configId.user").remove("$configId.password").commit()
+        store.edit {
+            remove("$configId.user")
+            remove("$configId.password")
+        }
         _revision.value++
     }
 }

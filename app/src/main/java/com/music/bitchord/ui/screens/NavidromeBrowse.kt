@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -39,6 +41,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -49,6 +53,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
@@ -67,6 +72,7 @@ import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.PlayingAccent
 import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
 import com.music.bitchord.ui.components.SongRow
+import com.music.bitchord.ui.components.floatingBarsClearance
 import com.music.bitchord.ui.components.songListSkeleton
 
 /** Rows loaded at a time; the next batch is requested as the list nears its end. */
@@ -74,6 +80,53 @@ private const val PAGE = 50
 
 /** How many rows from the end of the list the next batch is asked for. */
 private const val PREFETCH = 8
+
+/**
+ * Albums kept in saved state. A font-scale change recreates the Activity (only
+ * orientation and size are handled in place), and the loaded albums are the
+ * part that is otherwise lost; the scroll position is restored against them.
+ * Capped so a very large library never has to fit in a saved-state bundle.
+ */
+private const val SAVED_ALBUMS = 200
+
+private fun LibraryPage<LibraryAlbum>.capped(): LibraryPage<LibraryAlbum> =
+    if (items.size <= SAVED_ALBUMS) this else LibraryPage(items.take(SAVED_ALBUMS), SAVED_ALBUMS)
+
+/** Flat, bundle-safe form of an album page: the next offset, then seven fields per album. */
+internal val albumPageSaver: Saver<LibraryPage<LibraryAlbum>, Any> = listSaver(
+    save = { page ->
+        buildList {
+            add(page.nextOffset ?: -1)
+            page.items.forEach { a ->
+                add(a.id)
+                add(a.title)
+                add(a.artist)
+                add(a.artistId.orEmpty())
+                add(a.year ?: -1)
+                add(a.trackCount ?: -1)
+                add(a.artworkRef.orEmpty())
+            }
+        }
+    },
+    restore = { saved ->
+        runCatching {
+            LibraryPage(
+                items = saved.drop(1).chunked(7).map { f ->
+                    LibraryAlbum(
+                        id = f[0] as String,
+                        title = f[1] as String,
+                        artist = f[2] as String,
+                        artistId = (f[3] as String).ifEmpty { null },
+                        year = (f[4] as Int).takeIf { it >= 0 },
+                        trackCount = (f[5] as Int).takeIf { it >= 0 },
+                        artworkRef = (f[6] as String).ifEmpty { null },
+                    )
+                },
+                nextOffset = (saved[0] as Int).takeIf { it >= 0 },
+            )
+        }.getOrNull()
+    },
+)
 
 /**
  * The browsing contract of the server named by [configId], or null when it is
@@ -105,6 +158,7 @@ internal fun NavidromeLibraryScreen(
     onOpenArtist: (LibraryArtist) -> Unit,
     onOpenAlbum: (LibraryAlbum) -> Unit,
     contentPadding: PaddingValues,
+    barsHeight: () -> Int,
     modifier: Modifier = Modifier,
 ) {
     val library = rememberLibrary(configId)
@@ -127,7 +181,15 @@ internal fun NavidromeLibraryScreen(
                 }
         }
     }
-    val albums = remember(library) { PagedList<LibraryAlbum> { offset -> library.albums(offset, PAGE) } }
+    var albumPage by rememberSaveable(configId, stateSaver = albumPageSaver) {
+        mutableStateOf(LibraryPage<LibraryAlbum>(emptyList(), 0))
+    }
+    val albums = remember(library) {
+        PagedList(restored = albumPage.takeIf { it.items.isNotEmpty() }) { offset -> library.albums(offset, PAGE) }
+    }
+    LaunchedEffect(albums) {
+        snapshotFlow { albums.items }.collect { albumPage = albums.snapshot().capped() }
+    }
     val current = if (tab == 0) artists else albums
 
     // Starts the visible list, then extends it whenever the end comes near.
@@ -140,7 +202,7 @@ internal fun NavidromeLibraryScreen(
         }.collect { (near, _) -> if (near) current.loadNext() }
     }
 
-    LazyColumn(state = listState, modifier = modifier.fillMaxSize(), contentPadding = contentPadding) {
+    LazyColumn(state = listState, modifier = modifier.fillMaxSize(), contentPadding = contentPadding.withoutBottom()) {
         item(key = "tabs") {
             SegmentedControl(
                 options = listOf(stringResource(R.string.artists), stringResource(R.string.albums)),
@@ -172,7 +234,7 @@ internal fun NavidromeLibraryScreen(
         item(key = "state:$tab") {
             when {
                 current.error != null -> Failed(
-                    message = current.error.orEmpty(),
+                    error = current.error,
                     compact = current.items.isNotEmpty(),
                 ) { scope.launch { current.retry() } }
                 current.loading && current.items.isEmpty() -> Skeletons()
@@ -181,6 +243,7 @@ internal fun NavidromeLibraryScreen(
                     MessageState(stringResource(R.string.navidrome_empty))
             }
         }
+        item(key = "clearance") { Spacer(Modifier.floatingBarsClearance(barsHeight)) }
     }
 }
 
@@ -191,6 +254,7 @@ internal fun NavidromeArtistScreen(
     artistId: String,
     onOpenAlbum: (LibraryAlbum) -> Unit,
     contentPadding: PaddingValues,
+    barsHeight: () -> Int,
     modifier: Modifier = Modifier,
 ) {
     val library = rememberLibrary(configId)
@@ -200,17 +264,22 @@ internal fun NavidromeArtistScreen(
     }
     var attempt by remember { mutableIntStateOf(0) }
     var state by remember { mutableStateOf<UiState<List<LibraryAlbum>>>(UiState.Loading) }
+    var failure by remember { mutableStateOf<Throwable?>(null) }
     LaunchedEffect(library, artistId, attempt) {
         state = UiState.Loading
+        failure = null
         state = library.artistAlbums(artistId).fold(
             onSuccess = { UiState.Success(it) },
-            onFailure = { UiState.Error(it.message ?: "") },
+            onFailure = {
+                failure = it
+                UiState.Error("")
+            },
         )
     }
-    LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = contentPadding) {
+    LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = contentPadding.withoutBottom()) {
         when (val s = state) {
             UiState.Loading -> item { Skeletons() }
-            is UiState.Error -> item { Failed(s.message) { attempt++ } }
+            is UiState.Error -> item { Failed(failure) { attempt++ } }
             is UiState.Success -> if (s.data.isEmpty()) {
                 item { MessageState(stringResource(R.string.navidrome_empty)) }
             } else {
@@ -220,6 +289,7 @@ internal fun NavidromeArtistScreen(
                 }
             }
         }
+        item(key = "clearance") { Spacer(Modifier.floatingBarsClearance(barsHeight)) }
     }
 }
 
@@ -235,6 +305,7 @@ internal fun NavidromeAlbumScreen(
     onSongLongPress: (Song) -> Unit,
     onSongSwipe: (Song) -> Unit,
     contentPadding: PaddingValues,
+    barsHeight: () -> Int,
     currentSong: Song?,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
@@ -246,14 +317,19 @@ internal fun NavidromeAlbumScreen(
     }
     var attempt by remember { mutableIntStateOf(0) }
     var state by remember { mutableStateOf<UiState<List<Song>>>(UiState.Loading) }
+    var failure by remember { mutableStateOf<Throwable?>(null) }
     LaunchedEffect(library, albumId, attempt) {
         state = UiState.Loading
+        failure = null
         state = library.albumTracks(albumId).fold(
             onSuccess = { UiState.Success(it) },
-            onFailure = { UiState.Error(it.message ?: "") },
+            onFailure = {
+                failure = it
+                UiState.Error("")
+            },
         )
     }
-    LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = contentPadding) {
+    LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = contentPadding.withoutBottom()) {
         item(key = "header") {
             AlbumHeader(
                 title = title,
@@ -266,7 +342,7 @@ internal fun NavidromeAlbumScreen(
         }
         when (val s = state) {
             UiState.Loading -> songListSkeleton(count = 8, keyPrefix = "skeleton:navidrome-album")
-            is UiState.Error -> item { Failed(s.message) { attempt++ } }
+            is UiState.Error -> item { Failed(failure) { attempt++ } }
             is UiState.Success -> if (s.data.isEmpty()) {
                 item { MessageState(stringResource(R.string.navidrome_empty)) }
             } else {
@@ -289,10 +365,18 @@ internal fun NavidromeAlbumScreen(
                 }
             }
         }
+        item(key = "clearance") { Spacer(Modifier.floatingBarsClearance(barsHeight)) }
     }
 }
 
 // ── Pieces ──────────────────────────────────────────────────────────────
+
+/** The same padding without its bottom: the floating bars are cleared by a measured item instead. */
+private fun PaddingValues.withoutBottom(): PaddingValues = PaddingValues(
+    start = calculateStartPadding(LayoutDirection.Ltr),
+    top = calculateTopPadding(),
+    end = calculateEndPadding(LayoutDirection.Ltr),
+)
 
 private const val ART_ROW_PX = 150
 private const val ART_HEADER_PX = 600
@@ -358,6 +442,8 @@ private fun Cover(
     modifier: Modifier,
     iconSize: androidx.compose.ui.unit.Dp,
     circular: Boolean,
+    /** Set only where the image is not already read out as part of a row's label. */
+    description: String? = null,
 ) {
     val shape = if (circular) RoundedCornerShape(percent = 50) else RoundedCornerShape(6.dp)
     Box(
@@ -375,7 +461,7 @@ private fun Cover(
         if (art != null) {
             AsyncImage(
                 model = art,
-                contentDescription = null,
+                contentDescription = description,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -405,6 +491,8 @@ private fun AlbumHeader(
             Modifier.fillMaxWidth(0.7f).widthIn(max = 220.dp).aspectRatio(1f),
             48.dp,
             circular = false,
+            // Not inside a clickable row, so nothing else reads the album out.
+            description = title,
         )
         Spacer(Modifier.size(12.dp))
         Text(
@@ -470,9 +558,9 @@ private fun Spinner() {
 }
 
 @Composable
-private fun Failed(message: String, compact: Boolean = false, onRetry: () -> Unit) {
+private fun Failed(error: Throwable?, compact: Boolean = false, onRetry: () -> Unit) {
     MessageState(
-        message = message.ifBlank { stringResource(R.string.navidrome_unavailable) },
+        message = error?.let { navidromeErrorText(it) } ?: stringResource(R.string.navidrome_unavailable),
         actionLabel = stringResource(R.string.try_again),
         onAction = onRetry,
         modifier = if (compact) Modifier.padding(vertical = 0.dp) else Modifier,

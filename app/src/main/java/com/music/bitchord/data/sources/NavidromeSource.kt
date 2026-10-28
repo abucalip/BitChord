@@ -4,10 +4,12 @@ import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.sources.navidrome.NavidromeAlbum
 import com.music.bitchord.data.sources.navidrome.NavidromeClient
+import com.music.bitchord.data.sources.navidrome.NavidromeArt
 import com.music.bitchord.data.sources.navidrome.NavidromeCredentials
 import com.music.bitchord.data.sources.navidrome.NavidromeException
 import com.music.bitchord.data.sources.navidrome.NavidromeLogin
 import com.music.bitchord.data.sources.navidrome.NavidromeSong
+import com.music.bitchord.data.sources.navidrome.toReference
 import kotlinx.coroutines.CancellationException
 import java.util.Locale
 
@@ -72,11 +74,11 @@ class NavidromeSource(
                     is NavidromeException.InvalidUrl,
                     is NavidromeException.Unsupported,
                     is NavidromeException.Malformed,
-                    -> SourceHealth.Rejected(reason)
+                    -> SourceHealth.Rejected(reason, failure)
                     // Anything else may pass: worth keeping enabled and retrying.
                     else -> {
                         TrackLog.w(TAG, "${config.displayName}: unreachable — $reason")
-                        SourceHealth.Unreachable(reason)
+                        SourceHealth.Unreachable(reason, failure)
                     }
                 }
             },
@@ -108,11 +110,10 @@ class NavidromeSource(
         videoId = SourceRegistry.trackKey(config.id, song.id),
         title = song.title.ifBlank { song.id },
         artist = song.artist,
-        // Artwork is deliberately absent: Subsonic cover-art URLs carry the
-        // login as query parameters, and a Song is persisted in queues and
-        // history. Cover art arrives with browsing, through a loader that adds
-        // the login per request.
-        thumbnailUrl = null,
+        // A reference to the cover, never its URL: the Subsonic cover-art URL
+        // carries the login as query parameters, and a Song is persisted in
+        // queues and history. The loader adds the login when the image is shown.
+        thumbnailUrl = song.coverArt?.let { NavidromeArt(config.id, it, SEARCH_ART_PX).toReference() },
         albumName = song.album.ifBlank { null },
         durationText = song.duration?.let { "${it / 60}:${"%02d".format(Locale.ROOT, it % 60)}" },
         trackNumber = song.track,
@@ -201,9 +202,10 @@ class NavidromeSource(
         val url = client.streamUrl(trackId, capKbps).getOrNull() ?: return null
         val row = synchronized(rows) { rows[trackId] }
         val format = if (capKbps != null) {
-            // The server transcodes; what it picks is its own business, so the
-            // cap is the only thing known about the result.
-            StreamFormat(kbps = capKbps, kbpsInferred = true)
+            // The server transcodes and picks the codec itself, so it is read from
+            // what the stream says it is (one header request, no audio fetched).
+            // The bitrate is the cap, which is all that is known about it.
+            StreamFormat(codec = client.transcodedCodec(url), kbps = capKbps, kbpsInferred = true)
         } else {
             StreamFormat(
                 codec = row?.suffix?.lowercase(Locale.ROOT),
@@ -217,6 +219,8 @@ class NavidromeSource(
 
     private companion object {
         const val TAG = "BitChord"
+        /** Search and song rows show covers at roughly this size. */
+        const val SEARCH_ART_PX = 150
         const val MAX_ROWS = 256
     }
 }

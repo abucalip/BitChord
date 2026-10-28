@@ -34,6 +34,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
@@ -372,6 +374,9 @@ fun ServerEditorAlert(
                     value = field.value,
                     onValueChange = field.onChange,
                     placeholder = field.placeholder,
+                    // The placeholder vanishes as soon as something is typed, so
+                    // TalkBack needs the field's name from it rather than from the text.
+                    modifier = Modifier.semantics { contentDescription = field.placeholder },
                     enabled = !testing,
                     isPassword = field.isPassword,
                     keyboardOptions = KeyboardOptions(

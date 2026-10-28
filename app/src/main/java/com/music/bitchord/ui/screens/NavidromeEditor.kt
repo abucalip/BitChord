@@ -11,10 +11,12 @@ import com.music.bitchord.R
 import com.music.bitchord.data.sources.NavidromeSource
 import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceHealth
+import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.navidrome.NavidromeClient
 import com.music.bitchord.data.sources.navidrome.NavidromeCredentials
 import com.music.bitchord.data.sources.navidrome.NavidromeLogin
+import com.music.bitchord.ui.components.ConfirmationAlert
 import com.music.bitchord.ui.components.EditorField
 import com.music.bitchord.ui.components.ServerEditorAlert
 import dev.chrisbanes.haze.HazeState
@@ -23,6 +25,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
+
+/**
+ * The other Navidrome server already called [label], ignoring case, or null
+ * when none is or the label is blank (an unnamed server shows its host instead,
+ * so there is nothing to clash). [exceptId] is the server being edited.
+ */
+internal fun navidromeLabelTakenBy(configs: List<SourceConfig>, label: String, exceptId: String?): SourceConfig? {
+    val wanted = label.trim()
+    if (wanted.isEmpty()) return null
+    return configs.firstOrNull {
+        it.kind == SourceKind.NAVIDROME && it.id != exceptId && it.label.trim().equals(wanted, ignoreCase = true)
+    }
+}
 
 /**
  * Add or edit a Navidrome server: address, username, password and an optional name.
@@ -55,17 +70,23 @@ internal fun NavidromeEditorAlert(
     var label by remember { mutableStateOf(config.label) }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
+    // The failure behind a health status, so the text can be localised at composition.
+    var statusCause by remember { mutableStateOf<Throwable?>(null) }
     var statusIsGood by remember { mutableStateOf(false) }
+    var confirmRemove by remember { mutableStateOf(false) }
 
     val connected = stringResource(R.string.connected)
     val invalidUrl = stringResource(R.string.navidrome_invalid_url)
     val alreadyAdded = stringResource(R.string.source_already_added)
     val storageUnavailable = stringResource(R.string.navidrome_secure_storage_unavailable)
     val passwordRequired = stringResource(R.string.navidrome_password_required)
+    val labelTakenFormat = stringResource(R.string.navidrome_label_taken)
+    val labelTakenBy = navidromeLabelTakenBy(SourceRegistry.configs.value, label, config.id.takeUnless { isNew })
 
     fun typedUrl() = url.trim().let { if ("://" in it || it.isEmpty()) it else "https://$it" }
 
     fun run(thenSave: Boolean) {
+        statusCause = null
         val address = NavidromeClient.normalizeBase(typedUrl())?.toString()?.trimEnd('/')
         if (address == null || address.substringBefore("://") !in setOf("http", "https")) {
             statusIsGood = false
@@ -104,6 +125,11 @@ internal fun NavidromeEditorAlert(
                     .getOrElse { SourceHealth.Unreachable(it.message ?: "Failed") }
             }
             statusIsGood = health.isOk
+            statusCause = when (health) {
+                is SourceHealth.Rejected -> health.cause
+                is SourceHealth.Unreachable -> health.cause
+                is SourceHealth.Ok -> null
+            }
             status = when (health) {
                 is SourceHealth.Ok -> listOfNotNull(connected, health.detail).joinToString(" · ")
                 is SourceHealth.Rejected -> health.reason
@@ -129,13 +155,16 @@ internal fun NavidromeEditorAlert(
     ServerEditorAlert(
         hazeState = hazeState,
         title = if (isNew) stringResource(R.string.add_navidrome) else config.displayName,
-        description = stringResource(
-            if (typedUrl().startsWith("http://", ignoreCase = true)) {
-                R.string.navidrome_http_warning
-            } else {
-                R.string.navidrome_description
-            },
-        ),
+        // A warning, not a block: two servers may share a name, but the list is
+        // hard to read when they do. Shown where the description is.
+        description = labelTakenBy?.let { String.format(labelTakenFormat, it.label.trim()) }
+            ?: stringResource(
+                if (typedUrl().startsWith("http://", ignoreCase = true)) {
+                    R.string.navidrome_http_warning
+                } else {
+                    R.string.navidrome_description
+                },
+            ),
         fields = listOf(
             EditorField(
                 value = url,
@@ -162,14 +191,29 @@ internal fun NavidromeEditorAlert(
                 placeholder = stringResource(R.string.navidrome_name_optional),
             ),
         ),
-        status = status,
+        status = status?.let { statusCause?.let { cause -> navidromeErrorText(cause) } ?: it },
         statusIsGood = statusIsGood,
         testing = busy,
         canSubmit = url.isNotBlank() && username.isNotBlank() && (password.isNotEmpty() || stored != null),
         onTest = { run(thenSave = false) },
         onSave = { run(thenSave = true) },
         removeLabel = stringResource(R.string.remove_source),
-        onRemove = if (isNew) null else onDelete,
+        onRemove = if (isNew) null else ({ confirmRemove = true }),
         onDismiss = onDismiss,
     )
+
+    // Removing also deletes the stored login, so it is not one stray tap away.
+    if (confirmRemove) {
+        ConfirmationAlert(
+            hazeState = hazeState,
+            title = stringResource(R.string.remove_source),
+            description = stringResource(R.string.navidrome_remove_confirmation),
+            confirmLabel = stringResource(R.string.remove),
+            onConfirm = {
+                confirmRemove = false
+                onDelete()
+            },
+            onDismiss = { confirmRemove = false },
+        )
+    }
 }

@@ -75,7 +75,7 @@ class NavidromeBrowseTest {
         }
         list.loadNext()
         list.loadNext()
-        assertEquals("down", list.error)
+        assertEquals("down", list.error?.message)
         assertEquals(listOf(0), list.items)
 
         // Scrolling again must not hammer a failing server.

@@ -568,19 +568,23 @@ avdmanager delete avd -n bitchord-36  # optional: remove the virtual phone
 
 ### 11.3 Known gaps worth closing
 
-| Gap | Where | Idea |
+Status after the gap-closing pass (branch `navidrome-gaps`, one commit per gap). "Verified" means unit-tested; the live and device checks are listed under 11.7.
+
+| Gap | Where | Status |
 |---|---|---|
-| Covers are cached in memory only | `NavidromeArtFetcher` | Add an on-disk cache keyed `navidrome:<configId>:<ref>:<size>`, never by URL. |
-| Search result rows have no artwork | `NavidromeSource.toSong` | Needs a persisted-safe reference (not a URL) and a loader that adds the login, as browse does. |
-| Capped (transcoded) streams show an unknown codec | `NavidromeSource.stream` | Read the response `Content-Type` or the player's reported format. |
-| Single-character searches (`é`, `ñ`, `&`) returned nothing on the live server | `search3` use | Check whether Navidrome ignores very short queries; if so, say so in the UI. |
-| Two servers with the same explicit label are not flagged | `NavidromeEditorAlert` | Warn on a duplicate display name. |
-| A **deleted** server's queued tracks are re-matched across all sources, including YouTube. An **edited address** does the same (seen on the emulator: a queued track then played from YouTube Music) | `SourceResolver.resolve` | A deleted or re-pointed config no longer says it was Navidrome; keep a small record of retired ids if this matters. |
-| Removing a server has no confirmation | `NavidromeEditorAlert` | Ask before removing; it also deletes the stored login. |
-| The Albums list returns to the top after a font-scale change (rotation keeps its place) | browse screens | Keep the list state across a configuration change. |
-| In landscape the floating mini-player and tab bar cover list rows | browse screens | Add bottom content padding for the floating bars. |
-| Client error text is English only | `NavidromeException` messages | Map exception types to string resources in the UI. |
-| No TalkBack audit | browse screens, editor | Walk through with TalkBack on; add content descriptions and focus order fixes. |
+| Covers are cached in memory only | `NavidromeArtFetcher` | Done in code: cover references use the `navidrome:<configId>:<ref>:<size>` key, never a URL. Coil's existing 100 MB disk cache holds them. Persistence across restarts needs a device check (11.7). |
+| Search result rows have no artwork | `NavidromeSource.toSong` | Done: a row stores `navidrome-art:<configId>/<ref>/<size>` (no login) and a Coil fetcher loads it. Needs a live check (11.7). |
+| Capped (transcoded) streams show an unknown codec | `NavidromeSource.stream` | Done: codec read from the stream's Content-Type with a one-byte request. Needs a live check (11.7). |
+| Single-character searches returned nothing on the live server | `search3` use | Open. Not changed: whether Navidrome ignores very short queries is unconfirmed, so no UI text was added. Needs the live check first (11.7). |
+| Two servers with the same explicit label are not flagged | `NavidromeEditorAlert` | Done: the editor warns (does not block). |
+| A deleted or re-pointed server's queued tracks were re-matched across all sources | `SourceResolver.resolve`, `SourceRegistry` | Done: retired ids are persisted with their successor. A re-pointed id may be answered only by its replacement; a removed id is answered by nothing. Covered by unit tests. |
+| Removing a server has no confirmation | `NavidromeEditorAlert` | Done. |
+| The Albums list returns to the top after a font-scale change | browse screens | Done in code: the first 200 loaded albums are kept in saved state. Needs a device check (11.7). |
+| In landscape the floating bars cover list rows | browse screens | Done in code: the lists end in a spacer as tall as the measured floating bars. Needs a device check (11.7). |
+| Client error text is English only | `NavidromeException` | Done: each category maps to a string resource. English text is in `values`; the 18 locale files carry English placeholders for translators to replace. |
+| No TalkBack audit | browse screens, editor | Partly done: the album cover is labelled and the server editor fields take their name from the placeholder. The full walkthrough needs a device (11.7). |
+
+Adding strings: every new key is in `values/strings.xml` and all 18 locales (`LocaleStringsTest` requires it). The locale entries are English placeholders until translators replace them.
 
 ### 11.4 Upstream
 
@@ -598,3 +602,14 @@ Each item needs its own short design and tests first, and its own PR: playlists 
 ### 11.6 Credentials hygiene
 
 The live test and the emulator checks use a real account. Keep credentials in a local, untracked env file (mode 600), use a read-only Navidrome account where possible, and never put credentials, tokens or the server address in a commit, PR, issue or this document.
+
+### 11.7 Checks that still need a live server or a device
+
+Not run in this pass; each needs the `NAVIDROME_*` variables (live test) or an emulator/device:
+
+- `NavidromeLiveTest` (skips itself without the variables). Not run: no local env file was available to the agent. Run it with the credentials supplied at run time, never written into the repo.
+- Single-character search behaviour on the live server (11.3).
+- Search-row artwork and the transcoded codec against a live server.
+- The album list kept across a font-scale change, and the landscape clearance above the floating bars.
+- Covers still present after an app restart (disk cache).
+- TalkBack walkthrough of the browse screens, with focus order.

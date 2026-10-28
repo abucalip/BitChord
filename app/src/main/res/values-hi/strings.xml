@@ -1377,6 +1377,17 @@
     <string name="navidrome_http_warning">यह पता एन्क्रिप्टेड नहीं है। आपका लॉगिन टोकन और संगीत नेटवर्क पर मौजूद कोई भी देख सकता है। http:// का उपयोग केवल भरोसेमंद नेटवर्क पर करें।</string>
     <string name="navidrome_password_unchanged">पासवर्ड (वही रखने के लिए खाली छोड़ें)</string>
     <string name="navidrome_name_optional">नाम (वैकल्पिक)</string>
+    <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
+    <string name="navidrome_remove_confirmation">Remove this server? Its saved password is deleted too.</string>
+    <string name="navidrome_err_network">Could not reach the server. Check the address and your connection.</string>
+    <string name="navidrome_err_timeout">The server took too long to answer. Try again in a moment.</string>
+    <string name="navidrome_err_tls">A secure connection could not be established. Check the server’s certificate.</string>
+    <string name="navidrome_err_auth">The server did not accept this username or password.</string>
+    <string name="navidrome_err_unsupported">This address does not look like a Navidrome or Subsonic server.</string>
+    <string name="navidrome_err_rate_limited">The server is limiting requests. Try again in a little while.</string>
+    <string name="navidrome_err_server">The server had a problem (HTTP %1$d). Try again later.</string>
+    <string name="navidrome_err_not_found">The server does not have that track.</string>
+    <string name="navidrome_err_malformed">The server sent a reply BitChord could not read.</string>
     <string name="navidrome_invalid_url">यह मान्य http या https पता नहीं है</string>
     <string name="navidrome_password_required">खाते का पासवर्ड दर्ज करें</string>
     <string name="navidrome_secure_storage_unavailable">इस डिवाइस पर सुरक्षित स्टोरेज उपलब्ध नहीं है, इसलिए पासवर्ड सहेजा नहीं गया</string>

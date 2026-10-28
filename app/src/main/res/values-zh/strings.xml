@@ -1354,6 +1354,17 @@
     <string name="navidrome_http_warning">此地址未加密。网络中的任何人都可能看到你的登录令牌和音乐。仅在你信任的网络中使用 http://。</string>
     <string name="navidrome_password_unchanged">密码（留空则保持不变）</string>
     <string name="navidrome_name_optional">名称（可选）</string>
+    <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
+    <string name="navidrome_remove_confirmation">Remove this server? Its saved password is deleted too.</string>
+    <string name="navidrome_err_network">Could not reach the server. Check the address and your connection.</string>
+    <string name="navidrome_err_timeout">The server took too long to answer. Try again in a moment.</string>
+    <string name="navidrome_err_tls">A secure connection could not be established. Check the server’s certificate.</string>
+    <string name="navidrome_err_auth">The server did not accept this username or password.</string>
+    <string name="navidrome_err_unsupported">This address does not look like a Navidrome or Subsonic server.</string>
+    <string name="navidrome_err_rate_limited">The server is limiting requests. Try again in a little while.</string>
+    <string name="navidrome_err_server">The server had a problem (HTTP %1$d). Try again later.</string>
+    <string name="navidrome_err_not_found">The server does not have that track.</string>
+    <string name="navidrome_err_malformed">The server sent a reply BitChord could not read.</string>
     <string name="navidrome_invalid_url">这不是有效的 http 或 https 地址</string>
     <string name="navidrome_password_required">请输入账户密码</string>
     <string name="navidrome_secure_storage_unavailable">此设备不支持安全存储，因此未保存密码</string>

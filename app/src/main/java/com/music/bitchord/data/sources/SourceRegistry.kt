@@ -65,10 +65,24 @@ data class SourceConfig(
     /** What the sources screen and the player show. Never blank. */
     val displayName: String
         get() = label.ifBlank {
+            if (kind == SourceKind.NAVIDROME) return@ifBlank navidromeName()
             baseUrl.takeIf { it.isNotBlank() }
                 ?.let { runCatching { Uri.parse(it).host }.getOrNull() }
                 ?: kind.label
         }
+
+    /**
+     * Host, plus port and path when there are any, so two servers on one host
+     * (a second port, or a reverse proxy serving two paths) are told apart
+     * rather than both reading as the bare host name.
+     */
+    private fun navidromeName(): String {
+        val uri = runCatching { java.net.URI(baseUrl.trim()) }.getOrNull()
+        val host = uri?.host ?: return kind.label
+        val port = uri.port.takeIf { it != -1 }?.let { ":$it" }.orEmpty()
+        val path = uri.path.orEmpty().trimEnd('/')
+        return host + port + path
+    }
 
     /** Whether this has enough filled in to be worth contacting at all. */
     val isComplete: Boolean
@@ -313,6 +327,24 @@ object SourceRegistry {
         // The login goes with the source: a deleted server must not leave a password behind.
         if (target.kind == SourceKind.NAVIDROME) NavidromeCredentials.delete(configId)
         publish(configs.value.filterNot { it.id == configId })
+    }
+
+    /**
+     * Replaces the source [oldId] with [replacement], in the same place in the
+     * order and with the same on/off state, under a different id.
+     *
+     * For a server edited to point somewhere else. Track ids belong to the
+     * server that issued them, and queued tracks name their source by config
+     * id: keeping the id across an address change would let ids issued by the
+     * old server be resolved against the new one, where the same id may be a
+     * different song. Under a new id those queued tracks stop resolving to
+     * this source instead. The old login is deleted.
+     */
+    fun rekey(oldId: String, replacement: SourceConfig) {
+        val old = config(oldId) ?: return
+        if (old.kind in BUILT_IN_KINDS || replacement.id == oldId) return
+        publish(configs.value.map { if (it.id == oldId) replacement.copy(enabled = old.enabled).tidied() else it })
+        if (old.kind == SourceKind.NAVIDROME) NavidromeCredentials.delete(oldId)
     }
 
     /**

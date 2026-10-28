@@ -22,6 +22,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
 /**
  * Add or edit a Navidrome server: address, username, password and an optional name.
@@ -85,7 +86,16 @@ internal fun NavidromeEditorAlert(
             status = String.format(alreadyAdded, existing.displayName)
             return
         }
-        val candidate = config.copy(baseUrl = address, label = label.trim())
+        // Pointing a saved server somewhere else makes it a different source:
+        // track ids are only meaningful to the server that issued them, and
+        // queued tracks name their source by this id. See SourceRegistry.rekey.
+        val savedAddress = NavidromeClient.normalizeBase(config.baseUrl)?.toString()?.trimEnd('/')
+        val addressChanged = !isNew && !address.equals(savedAddress, ignoreCase = true)
+        val candidate = config.copy(
+            id = if (addressChanged) UUID.randomUUID().toString() else config.id,
+            baseUrl = address,
+            label = label.trim(),
+        )
         busy = true
         status = null
         scope.launch {
@@ -106,7 +116,11 @@ internal fun NavidromeEditorAlert(
                     status = storageUnavailable
                     return@launch
                 }
-                if (isNew) SourceRegistry.add(candidate) else SourceRegistry.update(candidate)
+                when {
+                    isNew -> SourceRegistry.add(candidate)
+                    addressChanged -> SourceRegistry.rekey(config.id, candidate)
+                    else -> SourceRegistry.update(candidate)
+                }
                 onSaved()
             }
         }

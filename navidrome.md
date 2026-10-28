@@ -2,7 +2,7 @@
 
 ## Status and delivery strategy
 
-- **Status:** Phase 0 and Phase 1 are merged (PRs #1, #2). Phase 2 is in progress, delivered as two PRs: the browsing interface and API first, the UI and artwork second.
+- **Status:** Phase 0 and Phase 1 are merged (PRs #1, #2). Phase 2 is merged (PRs #3, #4). Phase 3 is in review (PR #5).
 - **Goal:** Add native Navidrome support to BitChord without replacing its existing playback engine.
 - **Delivery:** Small, reviewable pull requests, starting with authenticated search and playback.
 - **Principle:** Navidrome is a first-class source, not a custom addon. Preserve existing source behavior and avoid unrelated refactors.
@@ -243,6 +243,31 @@ Delivered as planned, with these specifics and deviations:
 6. Check accessibility, localization, and small-screen layouts.
 
 **Acceptance criteria:** Servers are distinguishable; source lifecycle actions never redirect tracks to another server; connectivity problems are recoverable; existing source-management flows still work.
+
+### Phase 3 outcome
+
+Implemented in PR #5. These are the defined behaviours:
+
+| Situation | Behaviour |
+|---|---|
+| Server unreachable | Sources row shows Unreachable (a refusal of credentials shows Rejected instead). Search returns nothing for that server and logs the reason. Browsing shows the error with Try Again. A queued track from it fails at playback, because the stream URL is built locally; it is **not** replaced by another source. |
+| Server disabled | Off means off: nothing is contacted. Browsing and cover art refuse it. A queued track from it is skipped, and no other source (including a lossless upgrade from another server) answers for it. |
+| Address edited | The server is re-keyed under a new config id, keeping its place in the order and its on/off state. Track ids are only meaningful to the server that issued them, so queued tracks from the old id are never sent to the new server by id; they are re-matched by title, artist and duration like any removed source. The old login is deleted. |
+| Username, password or label edited | Same id. The stored login is replaced, and the Sources screen re-checks the server (a password change alters no config field, so the login store has its own revision counter). |
+| Server deleted | Its login is deleted. Queued tracks are re-matched by metadata, never by id. |
+| Duplicate ids on two servers | Each track resolves against its own server (tested through the resolver, not only the source). |
+
+Also: a server with no label is named by host plus any port and path, so two servers on one host are distinguishable. The album header cover scales down on narrow screens and list rows are exposed as buttons.
+
+**No caching was added.** Library lists live in memory while their screen is open and are re-fetched on return. Covers are cached in memory by server and reference (see Phase 2).
+
+**Not done**
+
+- No accessibility audit with TalkBack or large font scales on a device; only the changes above.
+- Error text that originates in the client (for example "Wrong username or password") is English-only; the surrounding UI strings are translated.
+- Two servers given the same explicit label are not flagged.
+- A deleted server's queued tracks are re-matched across other sources, including YouTube, because a deleted config no longer says what kind it was.
+- Still unverified on a device or against a real server.
 
 ### Phase 4 — Optional future features
 

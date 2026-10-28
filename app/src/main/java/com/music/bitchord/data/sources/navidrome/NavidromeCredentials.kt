@@ -2,7 +2,11 @@ package com.music.bitchord.data.sources.navidrome
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.annotation.VisibleForTesting
 import com.music.bitchord.auth.EncryptedPrefs
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /** The username and password for one Navidrome server. */
 data class NavidromeLogin(val username: String, val password: String) {
@@ -26,12 +30,31 @@ object NavidromeCredentials {
 
     private var prefs: SharedPreferences? = null
 
+    /** Null in production; tests install a store that is not backed by the Keystore. */
+    private var storeIsEncrypted: Boolean? = null
+
+    private val _revision = MutableStateFlow(0)
+
+    /**
+     * Bumped whenever a stored login changes. A password edited on a server
+     * whose address did not change alters no [SourceConfig] field, so anything
+     * that re-checks a server when its config changes (the sources screen's
+     * health probe) also watches this.
+     */
+    val revision: StateFlow<Int> = _revision.asStateFlow()
+
+    @VisibleForTesting
+    internal fun installForTest(store: SharedPreferences, encrypted: Boolean = true) {
+        prefs = store
+        storeIsEncrypted = encrypted
+    }
+
     fun init(context: Context) {
         prefs = EncryptedPrefs.open(context, NAME, PLAIN_NAME)
     }
 
     /** Whether a password can be stored safely right now. */
-    fun canStore(): Boolean = prefs != null && EncryptedPrefs.isEncrypted(NAME)
+    fun canStore(): Boolean = prefs != null && (storeIsEncrypted ?: EncryptedPrefs.isEncrypted(NAME))
 
     fun get(configId: String): NavidromeLogin? {
         val store = prefs ?: return null
@@ -44,14 +67,18 @@ object NavidromeCredentials {
     fun save(configId: String, login: NavidromeLogin): Boolean {
         val store = prefs ?: return false
         if (!canStore()) return false
-        return store.edit()
+        val saved = store.edit()
             .putString("$configId.user", login.username)
             .putString("$configId.password", login.password)
             .commit()
+        if (saved) _revision.value++
+        return saved
     }
 
     /** Removes the login for [configId]; safe to call before [init] or for an unknown id. */
     fun delete(configId: String) {
-        prefs?.edit()?.remove("$configId.user")?.remove("$configId.password")?.apply()
+        val store = prefs ?: return
+        store.edit().remove("$configId.user").remove("$configId.password").commit()
+        _revision.value++
     }
 }

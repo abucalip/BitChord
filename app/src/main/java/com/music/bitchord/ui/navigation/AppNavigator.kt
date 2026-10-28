@@ -27,6 +27,21 @@ sealed interface AppRoute {
 
     /** A Library shelf's "Show all" — its own cards laid out again as a grid. */
     data class LibraryShowAll(val shelf: HomeShelf) : AppRoute
+
+    /** A Navidrome server's artists and albums. */
+    data class NavidromeLibrary(val configId: String, val serverName: String) : AppRoute
+
+    /** One artist's albums on a Navidrome server. */
+    data class NavidromeArtist(val configId: String, val artistId: String, val name: String) : AppRoute
+
+    /** One album's tracks on a Navidrome server. */
+    data class NavidromeAlbum(
+        val configId: String,
+        val albumId: String,
+        val title: String,
+        val artist: String,
+        val artworkRef: String?,
+    ) : AppRoute
 }
 
 /**

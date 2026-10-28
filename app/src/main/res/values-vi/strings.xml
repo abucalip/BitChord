@@ -1297,4 +1297,8 @@
     <string name="navidrome_invalid_url">Đây không phải là địa chỉ http hoặc https hợp lệ</string>
     <string name="navidrome_password_required">Nhập mật khẩu của tài khoản</string>
     <string name="navidrome_secure_storage_unavailable">Bộ nhớ an toàn không khả dụng trên thiết bị này nên mật khẩu chưa được lưu</string>
+    <string name="navidrome_libraries">Thư viện máy chủ</string>
+    <string name="navidrome_browse">Duyệt nghệ sĩ và album</string>
+    <string name="navidrome_empty">Chưa có gì ở đây</string>
+    <string name="navidrome_unavailable">Máy chủ này không khả dụng. Hãy kiểm tra trong Nguồn.</string>
 </resources>

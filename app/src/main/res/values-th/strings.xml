@@ -1363,4 +1363,8 @@
     <string name="navidrome_invalid_url">ที่อยู่ http หรือ https นี้ไม่ถูกต้อง</string>
     <string name="navidrome_password_required">ป้อนรหัสผ่านของบัญชี</string>
     <string name="navidrome_secure_storage_unavailable">อุปกรณ์นี้ไม่มีที่เก็บข้อมูลที่ปลอดภัย จึงไม่ได้บันทึกรหัสผ่าน</string>
+    <string name="navidrome_libraries">คลังเพลงของเซิร์ฟเวอร์</string>
+    <string name="navidrome_browse">เรียกดูศิลปินและอัลบั้ม</string>
+    <string name="navidrome_empty">ยังไม่มีอะไรที่นี่</string>
+    <string name="navidrome_unavailable">เซิร์ฟเวอร์นี้ไม่พร้อมใช้งาน ตรวจสอบได้ในแหล่งที่มา</string>
 </resources>

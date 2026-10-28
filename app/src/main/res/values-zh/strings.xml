@@ -1357,4 +1357,8 @@
     <string name="navidrome_invalid_url">这不是有效的 http 或 https 地址</string>
     <string name="navidrome_password_required">请输入账户密码</string>
     <string name="navidrome_secure_storage_unavailable">此设备不支持安全存储，因此未保存密码</string>
+    <string name="navidrome_libraries">服务器音乐库</string>
+    <string name="navidrome_browse">浏览艺术家和专辑</string>
+    <string name="navidrome_empty">这里还没有内容</string>
+    <string name="navidrome_unavailable">此服务器不可用。请在“来源”中检查。</string>
 </resources>

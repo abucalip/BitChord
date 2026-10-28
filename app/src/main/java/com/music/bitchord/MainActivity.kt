@@ -174,7 +174,10 @@ import com.music.bitchord.ui.screens.ListenTogetherScreen
 import com.music.bitchord.ui.screens.PartyServerEditor
 import com.music.bitchord.ui.screens.SignatureApiEditor
 import com.music.bitchord.ui.screens.SettingsScreen
+import com.music.bitchord.ui.screens.NavidromeAlbumScreen
+import com.music.bitchord.ui.screens.NavidromeArtistScreen
 import com.music.bitchord.ui.screens.NavidromeEditorAlert
+import com.music.bitchord.ui.screens.NavidromeLibraryScreen
 import com.music.bitchord.ui.screens.SourceEditorAlert
 import com.music.bitchord.ui.screens.SourcesScreen
 import com.music.bitchord.data.sources.TrackMatcher
@@ -2786,6 +2789,53 @@ private fun BitChordApp(
                                 onEditWebDav = { showWebDavEditor = true },
                                 onEditSmb = { showSmbEditor = true },
                                 onConfirmJioSaavn = { confirmJioSaavn = true },
+                                onBrowseNavidrome = {
+                                    navigator.push(AppRoute.NavidromeLibrary(it.id, it.displayName))
+                                },
+                            )
+                        } else if (pageRoute is AppRoute.NavidromeLibrary) {
+                            NavidromeLibraryScreen(
+                                configId = pageRoute.configId,
+                                onOpenArtist = {
+                                    navigator.push(AppRoute.NavidromeArtist(pageRoute.configId, it.id, it.name))
+                                },
+                                onOpenAlbum = {
+                                    navigator.push(
+                                        AppRoute.NavidromeAlbum(pageRoute.configId, it.id, it.title, it.artist, it.artworkRef),
+                                    )
+                                },
+                                contentPadding = listPadding,
+                            )
+                        } else if (pageRoute is AppRoute.NavidromeArtist) {
+                            NavidromeArtistScreen(
+                                configId = pageRoute.configId,
+                                artistId = pageRoute.artistId,
+                                onOpenAlbum = {
+                                    navigator.push(
+                                        AppRoute.NavidromeAlbum(pageRoute.configId, it.id, it.title, it.artist, it.artworkRef),
+                                    )
+                                },
+                                contentPadding = listPadding,
+                            )
+                        } else if (pageRoute is AppRoute.NavidromeAlbum) {
+                            NavidromeAlbumScreen(
+                                configId = pageRoute.configId,
+                                albumId = pageRoute.albumId,
+                                title = pageRoute.title,
+                                artist = pageRoute.artist,
+                                artworkRef = pageRoute.artworkRef,
+                                onPlay = { songs, index ->
+                                    playFrom(
+                                        songs,
+                                        index,
+                                        QueueSource(pageRoute.title, PlaybackSourceType.BROWSE, "navidrome:${pageRoute.configId}:${pageRoute.albumId}"),
+                                    )
+                                },
+                                onSongLongPress = openSongMenu,
+                                onSongSwipe = onSongSwipe,
+                                contentPadding = listPadding,
+                                currentSong = player.song,
+                                isPlaying = player.isPlaying,
                             )
                         } else if (pageRoute == AppRoute.WearOs) {
                             WearOsScreen(contentPadding = listPadding)
@@ -3414,6 +3464,9 @@ private fun BitChordApp(
                         is AppRoute.LibraryShowAll -> route.shelf.title
                         AppRoute.AccountScrobbling -> stringResource(R.string.account_scrobbling)
                         AppRoute.Sources -> stringResource(R.string.sources)
+                        is AppRoute.NavidromeLibrary -> route.serverName
+                        is AppRoute.NavidromeArtist -> route.name
+                        is AppRoute.NavidromeAlbum -> route.title
                         AppRoute.ListenTogether -> stringResource(R.string.listen_together)
                         AppRoute.WearOs -> stringResource(R.string.wear_os_page_title)
                         AppRoute.Equalizer -> stringResource(R.string.equalizer)

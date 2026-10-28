@@ -1385,4 +1385,8 @@
     <string name="navidrome_invalid_url">זו אינה כתובת http או https תקינה</string>
     <string name="navidrome_password_required">הזן את סיסמת החשבון</string>
     <string name="navidrome_secure_storage_unavailable">אחסון מאובטח אינו זמין במכשיר זה, ולכן הסיסמה לא נשמרה</string>
+    <string name="navidrome_libraries">ספריות שרתים</string>
+    <string name="navidrome_browse">עיון באמנים ובאלבומים</string>
+    <string name="navidrome_empty">עדיין אין כאן כלום</string>
+    <string name="navidrome_unavailable">השרת הזה אינו זמין. בדוק אותו במקורות.</string>
 </resources>

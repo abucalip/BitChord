@@ -1352,4 +1352,8 @@
     <string name="navidrome_invalid_url">No es una dirección http o https válida</string>
     <string name="navidrome_password_required">Introduce la contraseña de la cuenta</string>
     <string name="navidrome_secure_storage_unavailable">El almacenamiento seguro no está disponible en este dispositivo, así que no se guardó la contraseña</string>
+    <string name="navidrome_libraries">Bibliotecas de servidores</string>
+    <string name="navidrome_browse">Explorar artistas y álbumes</string>
+    <string name="navidrome_empty">Aún no hay nada aquí</string>
+    <string name="navidrome_unavailable">Este servidor no está disponible. Revísalo en Fuentes.</string>
 </resources>

@@ -1355,6 +1355,7 @@
     <string name="navidrome_http_warning">このアドレスは暗号化されていません。ログイントークンや音楽がネットワーク上の誰にでも見られる可能性があります。http:// は信頼できるネットワークでのみ使用してください。</string>
     <string name="navidrome_password_unchanged">パスワード（空欄のままにすると変更しません）</string>
     <string name="navidrome_name_optional">名前（任意）</string>
+    <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
     <string name="navidrome_invalid_url">有効な http または https のアドレスではありません</string>
     <string name="navidrome_password_required">アカウントのパスワードを入力してください</string>
     <string name="navidrome_secure_storage_unavailable">この端末では安全なストレージを利用できないため、パスワードは保存されませんでした</string>

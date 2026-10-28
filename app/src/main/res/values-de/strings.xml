@@ -1377,6 +1377,7 @@
     <string name="navidrome_http_warning">Diese Adresse ist nicht verschlüsselt. Dein Anmeldetoken und deine Musik können von jedem im Netzwerk gesehen werden. Verwende http:// nur in einem Netzwerk, dem du vertraust.</string>
     <string name="navidrome_password_unchanged">Passwort (leer lassen, um es zu behalten)</string>
     <string name="navidrome_name_optional">Name (optional)</string>
+    <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
     <string name="navidrome_invalid_url">Das ist keine gültige http- oder https-Adresse</string>
     <string name="navidrome_password_required">Gib das Passwort des Kontos ein</string>
     <string name="navidrome_secure_storage_unavailable">Sicherer Speicher ist auf diesem Gerät nicht verfügbar, daher wurde das Passwort nicht gespeichert</string>

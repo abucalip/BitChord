@@ -1334,6 +1334,7 @@
     <string name="navidrome_http_warning">Bu adres şifrelenmemiştir. Oturum açma belirtecinizi ve müziğinizi ağdaki herkes görebilir. http:// adresini yalnızca güvendiğiniz bir ağda kullanın.</string>
     <string name="navidrome_password_unchanged">Parola (korumak için boş bırakın)</string>
     <string name="navidrome_name_optional">Ad (isteğe bağlı)</string>
+    <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
     <string name="navidrome_invalid_url">Bu geçerli bir http veya https adresi değil</string>
     <string name="navidrome_password_required">Hesap parolasını girin</string>
     <string name="navidrome_secure_storage_unavailable">Bu cihazda güvenli depolama kullanılamıyor, bu nedenle parola kaydedilmedi</string>

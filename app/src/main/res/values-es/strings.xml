@@ -1349,6 +1349,7 @@
     <string name="navidrome_http_warning">Esta dirección no está cifrada. Tu token de inicio de sesión y tu música pueden ser vistos por cualquiera en la red. Usa http:// solo en una red de confianza.</string>
     <string name="navidrome_password_unchanged">Contraseña (déjala en blanco para conservarla)</string>
     <string name="navidrome_name_optional">Nombre (opcional)</string>
+    <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
     <string name="navidrome_invalid_url">No es una dirección http o https válida</string>
     <string name="navidrome_password_required">Introduce la contraseña de la cuenta</string>
     <string name="navidrome_secure_storage_unavailable">El almacenamiento seguro no está disponible en este dispositivo, así que no se guardó la contraseña</string>

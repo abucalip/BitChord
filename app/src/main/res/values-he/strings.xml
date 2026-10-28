@@ -1382,6 +1382,7 @@
     <string name="navidrome_http_warning">כתובת זו אינה מוצפנת. אסימון ההתחברות והמוזיקה שלך גלויים לכל מי שנמצא ברשת. השתמש ב-http:// רק ברשת שאתה סומך עליה.</string>
     <string name="navidrome_password_unchanged">סיסמה (השאר ריק כדי לשמור)</string>
     <string name="navidrome_name_optional">שם (אופציונלי)</string>
+    <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
     <string name="navidrome_invalid_url">זו אינה כתובת http או https תקינה</string>
     <string name="navidrome_password_required">הזן את סיסמת החשבון</string>
     <string name="navidrome_secure_storage_unavailable">אחסון מאובטח אינו זמין במכשיר זה, ולכן הסיסמה לא נשמרה</string>

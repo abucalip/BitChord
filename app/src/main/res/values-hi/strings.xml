@@ -1377,6 +1377,7 @@
     <string name="navidrome_http_warning">यह पता एन्क्रिप्टेड नहीं है। आपका लॉगिन टोकन और संगीत नेटवर्क पर मौजूद कोई भी देख सकता है। http:// का उपयोग केवल भरोसेमंद नेटवर्क पर करें।</string>
     <string name="navidrome_password_unchanged">पासवर्ड (वही रखने के लिए खाली छोड़ें)</string>
     <string name="navidrome_name_optional">नाम (वैकल्पिक)</string>
+    <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
     <string name="navidrome_invalid_url">यह मान्य http या https पता नहीं है</string>
     <string name="navidrome_password_required">खाते का पासवर्ड दर्ज करें</string>
     <string name="navidrome_secure_storage_unavailable">इस डिवाइस पर सुरक्षित स्टोरेज उपलब्ध नहीं है, इसलिए पासवर्ड सहेजा नहीं गया</string>

@@ -412,6 +412,7 @@
     <string name="navidrome_url_placeholder" translatable="false">https://music.example.com</string>
     <string name="navidrome_password_unchanged">Password (leave blank to keep)</string>
     <string name="navidrome_name_optional">Name (optional)</string>
+    <string name="navidrome_label_taken">Another server is already named %1$s. Give this one a different name to tell them apart.</string>
     <string name="navidrome_invalid_url">That is not a valid http or https address</string>
     <string name="navidrome_password_required">Enter the account password</string>
     <string name="navidrome_secure_storage_unavailable">Secure storage is unavailable on this device, so the password was not saved</string>

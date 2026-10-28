@@ -142,7 +142,9 @@ Provide useful error categories for invalid URL, network failure, TLS failure, a
 
 ### Phase 0 findings and decisions
 
-Audit of `main` at `6e93ebbd`. Read-only; the baseline build and tests have **not** been run yet (needs JDK 17, Android SDK, NDK).
+Audit of `main` at `6e93ebbd`. Read-only.
+
+**Baseline:** `./gradlew testDevDebugUnitTest` on `6c2be95f` (`main` plus this document): BUILD SUCCESSFUL, 1,118 tests in 101 classes, 0 failures, 0 errors, 1 skipped (2m 49s, JDK 17, NDK 27.0.12077973, CMake 3.22.1). Lint, static analysis and `assembleDevDebug` were not run. Note `compileSdk` is 37 (`app/build.gradle.kts`), not 36 as `CONTRIBUTING.md` says.
 
 **Decisions**
 
@@ -153,13 +155,13 @@ Audit of `main` at `6e93ebbd`. Read-only; the baseline build and tests have **no
 **Findings**
 
 1. `SourceKind` is referenced only inside `app`; `shared`, `sharedUi`, `tv` and `wearos` do not use it. Adding `NAVIDROME` requires editing the exhaustive `when` in `SourceRegistry.build()` and the icon `when` in `SourcesScreen.kt`. Other uses are `==` checks.
-2. Playback resolves `bitchord://source?s=<configId>&t=<trackId>` at open time via `ResolvingDataSource` and `SourceResolver`. A fresh salt per open fits this path, and persisted URIs never need credentials. To verify: `StreamChoice` caches resolved `SourceStream`s in memory, so a salted URL could go stale on retry, and `AudioCache` must key on the track key rather than the URL.
+2. Playback resolves `bitchord://source?s=<configId>&t=<trackId>` at open time via `ResolvingDataSource` and `SourceResolver`. A fresh salt per open fits this path, and persisted URIs never need credentials. `AudioCache` keys source tracks as `<configId>|<trackId>` (plus tag suffixes), never by URL, so salts cannot fragment or leak into the cache. Still to verify: `StreamChoice` caches resolved `SourceStream`s in memory, so a salted URL could go stale on retry.
 3. `SourceConfig` is stored whole in `EncryptedPrefs` (`bitchord_sources`). The encrypted file and its plain fallback are excluded from auto-backup (`backup_rules.xml`, `data_extraction_rules.xml`), and `AppSettings.exportPrefs()` reads a different file. `EncryptedPrefs` falls back to a plain file if the Keystore is unusable, which is why passwords get their own entry (see decisions).
 4. The manifest has `usesCleartextTraffic="false"` and there is no network security config.
 5. `SourceHealth.Rejected` versus `Unreachable` already matches the auth-failure versus connectivity-failure split.
 6. `StreamRequest.Capped` maps to `maxBitRate` and `Lossless` to `format=raw`. `canServeLossless` can be true for Navidrome.
-7. User-added kinds share `rank = 0`. Open: whether `SourceRegistry.reorderAddons` and `identify()` assume `ADDON`. Also decide `worthPrefetching` for Navidrome (a LAN server is likely fast; remote may not be).
-8. `MainViewModel.kt` filters to `AddonSource` when gathering results. Open: whether user-facing search shows non-addon sources, which decides whether Phase 1 needs search UI work.
+7. User-added kinds share `rank = 0`, and `reorderAddons` keys on `kind.isUserAdded`, so a rank-0 Navidrome kind reorders with addons unchanged. `identify(url)` can only produce `ADDON` or `CUSTOM_MODULE` by probing for a manifest or index, so Navidrome needs its own editor and save path. `SourceRegistry.tidied()` only normalizes `ADDON` URLs, so Navidrome needs its own normalization. `PlayerConnection.kt:638` checks for `ADDON` and has not been read yet. Still to decide: `worthPrefetching` for Navidrome.
+8. User-facing search has three modes (`SearchSource.YOUTUBE`, `LIBRARY`, `ADDONS`), and `MainViewModel.runAddonSearch` queries only `AddonSource` instances. Navidrome would otherwise only play as a substitute for a YouTube track, so Phase 1 widens `runAddonSearch` to sources with `kind.isUserAdded`.
 9. Tests are JVM unit tests under `app/src/test`; `AddonSourceTest.kt` is the closest template. Command: `./gradlew testDevDebugUnitTest`.
 10. `CONTRIBUTING.md` says to branch from the active version branch. Only `origin/main` exists (latest tag `v1.8.1`), so this work branches from `main`; confirm with maintainers if a version branch is expected.
 

@@ -59,6 +59,19 @@ class NavidromeClient(
         )
     }
 
+    /**
+     * One track's metadata, via `getSong`.
+     *
+     * Used to find out whether a track exists before it is handed to the
+     * player: for a missing id `stream` answers HTTP 200 with a JSON error
+     * body, which the player would try to read as audio. Fails fast
+     * ([CHECK_TIMEOUT_SECONDS]) because it sits in front of playback;
+     * [NavidromeException.NotFound] is the one definitive "no".
+     */
+    suspend fun getSong(trackId: String): Result<NavidromeSong> =
+        call("getSong", "id" to trackId, httpClient = checkClient)
+            .mapCatching { it.song?.takeIf { song -> song.id.isNotBlank() } ?: throw NavidromeException.NotFound() }
+
     /** Songs matching [query], via `search3` (ID3-based, paged by [offset]). */
     suspend fun searchSongs(query: String, count: Int = 25, offset: Int = 0): Result<List<NavidromeSong>> =
         call(
@@ -163,7 +176,15 @@ class NavidromeClient(
             }
             ?.build()
 
-    private suspend fun call(name: String, vararg params: Pair<String, String>): Result<SubsonicResponse> =
+    private val checkClient: OkHttpClient by lazy {
+        http.newBuilder().callTimeout(CHECK_TIMEOUT_SECONDS, TimeUnit.SECONDS).build()
+    }
+
+    private suspend fun call(
+        name: String,
+        vararg params: Pair<String, String>,
+        httpClient: OkHttpClient = http,
+    ): Result<SubsonicResponse> =
         withContext(Dispatchers.IO) {
             runCatching {
                 val url = endpoint(name)?.newBuilder()
@@ -171,7 +192,7 @@ class NavidromeClient(
                     ?.build()
                     ?: throw NavidromeException.InvalidUrl()
                 val request = Request.Builder().url(url).header("Accept", "application/json").build()
-                val body = http.newCall(request).execute().use { response ->
+                val body = httpClient.newCall(request).execute().use { response ->
                     when {
                         response.isSuccessful ->
                             response.body?.string()?.takeIf { it.isNotBlank() }
@@ -225,6 +246,9 @@ class NavidromeClient(
         /** The oldest Subsonic API version that has token auth and `search3`. */
         const val API_VERSION = "1.16.1"
         const val CLIENT_NAME = "BitChord"
+
+        /** The budget for checks made in front of playback, which must not stall it. */
+        const val CHECK_TIMEOUT_SECONDS = 5L
 
         /** `getAlbumList2` ordering: A-Z by album name. */
         const val ALBUMS_BY_NAME = "alphabeticalByName"

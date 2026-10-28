@@ -62,6 +62,10 @@ class NavidromeLifecycleTest {
 
     private val target = TrackMatcher.Target("Song", "Artist", durationSec = 125)
 
+    private fun found(id: String) = MockResponse().setBody(
+        """{"subsonic-response":{"status":"ok","version":"1.16.1","song":{"id":"$id","title":"Song"}}}""",
+    )
+
     private fun search(id: String) = MockResponse().setBody(
         """{"subsonic-response":{"status":"ok","version":"1.16.1","searchResult3":{"song":[
           {"id":"$id","title":"Song","artist":"Artist","duration":125,"suffix":"flac"}]}}}""",
@@ -73,6 +77,8 @@ class NavidromeLifecycleTest {
     fun `a queued track resolves against its own server even when ids collide`() = runBlocking {
         add(a, "srv-a")
         add(b, "srv-b")
+        a.enqueue(found("42"))
+        b.enqueue(found("42"))
         val fromA = SourceResolver.resolve("srv-a", "42", target)!!
         val fromB = SourceResolver.resolve("srv-b", "42", target)!!
         assertEquals(a.port, fromA.url.toHttpUrl().port)
@@ -91,6 +97,18 @@ class NavidromeLifecycleTest {
         assertNull(SourceResolver.resolve("srv-a", "42", target))
         assertEquals("no request may reach the disabled server", 0, a.requestCount)
         assertEquals("another server must not be searched in its place", 0, b.requestCount)
+    }
+
+    @Test
+    fun `a track deleted from its server is skipped, not replaced by another server's copy`() = runBlocking {
+        add(a, "srv-a")
+        add(b, "srv-b")
+        a.enqueue(
+            MockResponse().setBody("""{"subsonic-response":{"status":"failed","version":"1.16.1","error":{"code":70,"message":"x"}}}"""),
+        )
+        b.enqueue(search("99"))
+        assertNull(SourceResolver.resolve("srv-a", "gone", target))
+        assertEquals("the other server must not be searched", 0, b.requestCount)
     }
 
     @Test

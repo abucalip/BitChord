@@ -340,4 +340,39 @@ class NavidromeClientTest {
         assertFalse(first.contains("s3cret"))
         assertNotEquals(first, second)
     }
+
+    // ── getSong ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `getSong returns the track`() = runTest {
+        server.enqueue(ok("\"song\":{\"id\":\"7\",\"title\":\"Seven\",\"suffix\":\"mp3\",\"duration\":61}"))
+        val song = client().getSong("7").getOrThrow()
+        assertEquals("Seven", song.title)
+        assertEquals("mp3", song.suffix)
+        val url = server.takeRequest().requestUrl!!
+        assertEquals("/rest/getSong", url.encodedPath)
+        assertEquals("7", url.queryParameter("id"))
+    }
+
+    @Test
+    fun `getSong for a missing track is not found`() = runTest {
+        server.enqueue(failed(70))
+        assertTrue(client().getSong("x").exceptionOrNull() is NavidromeException.NotFound)
+    }
+
+    @Test
+    fun `getSong with no song in the answer is not found`() = runTest {
+        server.enqueue(ok("\"x\":1"))
+        assertTrue(client().getSong("x").exceptionOrNull() is NavidromeException.NotFound)
+    }
+
+    @Test
+    fun `getSong gives up quickly on a server that never answers`() = runTest {
+        server.enqueue(MockResponse().setBodyDelay(30, java.util.concurrent.TimeUnit.SECONDS).setBody("{}"))
+        val started = System.nanoTime()
+        val failure = client().getSong("x").exceptionOrNull()
+        val seconds = (System.nanoTime() - started) / 1_000_000_000.0
+        assertTrue("took ${seconds}s", seconds < 10)
+        assertTrue(failure is NavidromeException.Network)
+    }
 }

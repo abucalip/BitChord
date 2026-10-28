@@ -28,6 +28,7 @@ internal data class SubsonicResponse(
     val albumList2: AlbumList2? = null,
     val artist: ArtistWithAlbums? = null,
     val album: AlbumWithSongs? = null,
+    val song: NavidromeSong? = null,
 )
 
 @Serializable

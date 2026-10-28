@@ -133,6 +133,24 @@ private val TAP_GUARD_MARGIN = 8.dp
  * frame of its fold, and read in composition that would recompose the whole
  * app root along with it.
  */
+/**
+ * Empty space at the end of a list, as tall as the floating bars that cover
+ * the bottom of the screen, so the last row can be scrolled clear of them.
+ *
+ * [barsHeight] is read in layout, like [FloatingBarsTapGuard]: the glass bar's
+ * height changes every frame of its fold, and a list padding read in
+ * composition would recompose the app root on each of those frames.
+ */
+fun Modifier.floatingBarsClearance(barsHeight: () -> Int): Modifier =
+    layout { measurable, constraints ->
+        val height = (barsHeight() + FLOATING_BARS_CLEARANCE.roundToPx()).coerceIn(0, constraints.maxHeight)
+        val placeable = measurable.measure(Constraints.fixed(width = constraints.maxWidth, height = height))
+        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+    }
+
+/** Breathing room between the last row and the bars. */
+private val FLOATING_BARS_CLEARANCE = 24.dp
+
 @Composable
 fun FloatingBarsTapGuard(
     barsHeight: () -> Int,

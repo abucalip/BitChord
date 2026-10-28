@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -51,6 +53,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
@@ -69,6 +72,7 @@ import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.PlayingAccent
 import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
 import com.music.bitchord.ui.components.SongRow
+import com.music.bitchord.ui.components.floatingBarsClearance
 import com.music.bitchord.ui.components.songListSkeleton
 
 /** Rows loaded at a time; the next batch is requested as the list nears its end. */
@@ -154,6 +158,7 @@ internal fun NavidromeLibraryScreen(
     onOpenArtist: (LibraryArtist) -> Unit,
     onOpenAlbum: (LibraryAlbum) -> Unit,
     contentPadding: PaddingValues,
+    barsHeight: () -> Int,
     modifier: Modifier = Modifier,
 ) {
     val library = rememberLibrary(configId)
@@ -197,7 +202,7 @@ internal fun NavidromeLibraryScreen(
         }.collect { (near, _) -> if (near) current.loadNext() }
     }
 
-    LazyColumn(state = listState, modifier = modifier.fillMaxSize(), contentPadding = contentPadding) {
+    LazyColumn(state = listState, modifier = modifier.fillMaxSize(), contentPadding = contentPadding.withoutBottom()) {
         item(key = "tabs") {
             SegmentedControl(
                 options = listOf(stringResource(R.string.artists), stringResource(R.string.albums)),
@@ -238,6 +243,7 @@ internal fun NavidromeLibraryScreen(
                     MessageState(stringResource(R.string.navidrome_empty))
             }
         }
+        item(key = "clearance") { Spacer(Modifier.floatingBarsClearance(barsHeight)) }
     }
 }
 
@@ -248,6 +254,7 @@ internal fun NavidromeArtistScreen(
     artistId: String,
     onOpenAlbum: (LibraryAlbum) -> Unit,
     contentPadding: PaddingValues,
+    barsHeight: () -> Int,
     modifier: Modifier = Modifier,
 ) {
     val library = rememberLibrary(configId)
@@ -269,7 +276,7 @@ internal fun NavidromeArtistScreen(
             },
         )
     }
-    LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = contentPadding) {
+    LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = contentPadding.withoutBottom()) {
         when (val s = state) {
             UiState.Loading -> item { Skeletons() }
             is UiState.Error -> item { Failed(failure) { attempt++ } }
@@ -282,6 +289,7 @@ internal fun NavidromeArtistScreen(
                 }
             }
         }
+        item(key = "clearance") { Spacer(Modifier.floatingBarsClearance(barsHeight)) }
     }
 }
 
@@ -297,6 +305,7 @@ internal fun NavidromeAlbumScreen(
     onSongLongPress: (Song) -> Unit,
     onSongSwipe: (Song) -> Unit,
     contentPadding: PaddingValues,
+    barsHeight: () -> Int,
     currentSong: Song?,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
@@ -320,7 +329,7 @@ internal fun NavidromeAlbumScreen(
             },
         )
     }
-    LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = contentPadding) {
+    LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = contentPadding.withoutBottom()) {
         item(key = "header") {
             AlbumHeader(
                 title = title,
@@ -356,10 +365,18 @@ internal fun NavidromeAlbumScreen(
                 }
             }
         }
+        item(key = "clearance") { Spacer(Modifier.floatingBarsClearance(barsHeight)) }
     }
 }
 
 // ── Pieces ──────────────────────────────────────────────────────────────
+
+/** The same padding without its bottom: the floating bars are cleared by a measured item instead. */
+private fun PaddingValues.withoutBottom(): PaddingValues = PaddingValues(
+    start = calculateStartPadding(LayoutDirection.Ltr),
+    top = calculateTopPadding(),
+    end = calculateEndPadding(LayoutDirection.Ltr),
+)
 
 private const val ART_ROW_PX = 150
 private const val ART_HEADER_PX = 600

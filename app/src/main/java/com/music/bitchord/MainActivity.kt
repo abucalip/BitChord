@@ -2200,6 +2200,11 @@ private fun BitChordApp(
         bottom = if (player.song != null) 210.dp else 140.dp,
     )
 
+    // The height of the floating bars (tab bar, and the mini player above it
+    // when one is showing), reported by whichever bar is drawing. Read in
+    // layout only, by the tap guard and by the Navidrome list clearance.
+    val floatingBarsHeight = remember { mutableIntStateOf(0) }
+
     // What colour the page currently under the bars is. The fades either end
     // of the screen are flat colour wherever their blur has least to say, so
     // handing them the theme's background puts a black band on a page that is
@@ -2795,6 +2800,7 @@ private fun BitChordApp(
                             )
                         } else if (pageRoute is AppRoute.NavidromeLibrary) {
                             NavidromeLibraryScreen(
+                                barsHeight = { floatingBarsHeight.intValue },
                                 configId = pageRoute.configId,
                                 onOpenArtist = {
                                     navigator.push(AppRoute.NavidromeArtist(pageRoute.configId, it.id, it.name))
@@ -2808,6 +2814,7 @@ private fun BitChordApp(
                             )
                         } else if (pageRoute is AppRoute.NavidromeArtist) {
                             NavidromeArtistScreen(
+                                barsHeight = { floatingBarsHeight.intValue },
                                 configId = pageRoute.configId,
                                 artistId = pageRoute.artistId,
                                 onOpenAlbum = {
@@ -2819,6 +2826,7 @@ private fun BitChordApp(
                             )
                         } else if (pageRoute is AppRoute.NavidromeAlbum) {
                             NavidromeAlbumScreen(
+                                barsHeight = { floatingBarsHeight.intValue },
                                 configId = pageRoute.configId,
                                 albumId = pageRoute.albumId,
                                 title = pageRoute.title,
@@ -3806,7 +3814,6 @@ private fun BitChordApp(
 
                 // Whichever bar is drawing reports its height here, for the
                 // guard to read at layout — never in composition, see the guard.
-                val floatingBarsHeight = remember { mutableIntStateOf(0) }
                 FloatingBarsTapGuard(
                     barsHeight = { floatingBarsHeight.intValue },
                     modifier = Modifier.align(Alignment.BottomCenter),
